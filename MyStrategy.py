@@ -126,6 +126,7 @@ class MyStrategy(object):
     return False
 
   def GoTo(self, where, me, world, game, move):
+    """Tells unit 'me' to run to 'where'."""
     data = distances[where.x][where.y]
     current_dist = data[me.x][me.y]
     for dir in ALL_DIRS:
