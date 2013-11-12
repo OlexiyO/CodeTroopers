@@ -1,3 +1,6 @@
+from random import getrandbits
+import time
+
 from collections import namedtuple
 from model.CellType import CellType
 from model.ActionType import ActionType
@@ -30,7 +33,10 @@ def logmove(func):
   def F(*args, **kwargs):
     func(*args, **kwargs)
     move = args[-1]
-    print move.action, move.x, move.y
+    if move.action == ActionType.END_TURN:
+      print 'pass'
+    else:
+      print move.action, move.x, move.y
   return F
 
 
@@ -79,11 +85,10 @@ class MyStrategy(object):
     global GOAL
     GOAL = FindCornerToRun(me)
 
-    import time
     t = time.time()
     self._PrecomputeDistances()
     dt = time.time() - t
-    print dt
+    print '%.2f' % dt
 
   @logmove
   def move(self, me, world, game, move):
@@ -97,22 +102,47 @@ class MyStrategy(object):
       return
 
     enemies = {xy: T for xy, T in UNITS.iteritems() if not T.teammate}
+    global GOAL
     if enemies:
       (ex, ey), enemy = min(enemies.iteritems(), key=lambda x: x[1].hitpoints)
-      global GOAL
       GOAL = Point(x=ex, y=ey)
-      if me.action_points >= me.shoot_cost and CanShoot(me, enemy, world):
+      if (me.holding_grenade and
+          me.action_points >= game.grenade_throw_cost and
+          me.get_distance_to(ex, ey) <= game.grenade_throw_range and
+          enemy.hitpoints >= game.grenade_direct_damage / 2):
+        move.action = ActionType.THROW_GRENADE
+        move.x = ex
+        move.y = ey
+        return
+      elif me.action_points >= me.shoot_cost and CanShoot(me, enemy, world):
         move.action = ActionType.SHOOT
         move.x, move.y = ex, ey
         return
+      elif me.action_points >= me.shoot_cost + MoveCost(me, game):
+        if self.GoTo(GOAL, me, world, game, move):
+          if move.x == GOAL.x and move.y == GOAL.y:
+            print 'achieved'
+            GOAL = None
+          return
+        move.action = ActionType.END_TURN
       elif self.RunAway(GOAL, me, world, game, move):
         return
       move.action = ActionType.END_TURN
       return
-    elif self.GoTo(GOAL, me, world, game, move):
-      return
     else:
-      move.action = ActionType.END_TURN
+      if GOAL is None:
+        x_stays = getrandbits(1)
+        x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
+        y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
+        print 'GGGG', x_stays, me.x, me.y, x, y
+        GOAL = Point(x=x, y=y)
+      if self.GoTo(GOAL, me, world, game, move):
+        if move.x == GOAL.x and move.y == GOAL.y:
+          print 'achieved'
+          GOAL = None
+        return
+      else:
+        move.action = ActionType.END_TURN
 
   def RunAway(self, where, me, world, game, move):
     data = distances[where.x][where.y]
@@ -148,3 +178,13 @@ def FindCornerToRun(trooper):
   x = 0 if trooper.x < X / 2 else X - 1
   y = 0 if (trooper.y > (Y / 2)) else Y - 1
   return Point(x=x, y=y)
+
+
+def MoveCost(trooper, game):
+  if trooper.stance == TrooperStance.STANDING:
+    return game.standing_move_cost
+  elif trooper.stance == TrooperStance.KNEELING:
+    return game.kneeling_move_cost
+  else:
+    assert trooper.stance == TrooperStance.PRONE
+    return game.prone_move_cost

@@ -4,7 +4,7 @@ from RemoteProcessClient import RemoteProcessClient
 from model.Move import Move
 
 
-class Runner:
+class Repeater:
     def __init__(self):
         if sys.argv.__len__() == 4:
             self.remote_process_client = RemoteProcessClient(sys.argv[1], int(sys.argv[2]))
@@ -40,6 +40,7 @@ class Runner:
 
 
 from subprocess import call
-P = 'C:/Coding/CodeTroopers/Runner/local-runner.bat'
-call([P], shell=True)
-Runner().run()
+P = 'C:/Coding/CodeTroopers/Repeater/repeater.bat'
+token = None
+call([P, token], shell=True)
+Repeater().run()
