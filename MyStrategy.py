@@ -12,6 +12,8 @@ from model.Trooper import Trooper
 from model.TrooperStance import TrooperStance
 from model.World import World
 from constants import *
+import plan
+import util
 
 
 GOAL = None
@@ -82,16 +84,13 @@ class MyStrategy(object):
     global INITIALIZED
     if not INITIALIZED:
       self.Init(context)
-    global UNITS
-    UNITS = {(T.x, T.y) : T for T in world.troopers}
     if me.action_points < 2:
       move.action = ActionType.END_TURN
       return
 
-    enemies = {xy: T for xy, T in UNITS.iteritems() if not T.teammate}
     global GOAL
-    if enemies:
-      (ex, ey), enemy = min(enemies.iteritems(), key=lambda x: x[1].hitpoints)
+    if context.enemies:
+      (ex, ey), enemy = min(context.enemies.iteritems(), key=lambda x: x[1].hitpoints)
       GOAL = Point(x=ex, y=ey)
     elif GOAL is None:
       x_stays = getrandbits(1)
@@ -100,21 +99,29 @@ class MyStrategy(object):
       print 'GGGG', x_stays, me.x, me.y, x, y
       GOAL = Point(x=x, y=y)
 
-    if enemies:
-      (ex, ey), enemy = min(enemies.iteritems(), key=lambda x: x[1].hitpoints)
-      if (me.holding_grenade and
-          me.action_points >= game.grenade_throw_cost and
-          me.get_distance_to(ex, ey) <= game.grenade_throw_range and
-          enemy.hitpoints >= game.grenade_direct_damage / 2):
-        move.action = ActionType.THROW_GRENADE
-        move.x = ex
-        move.y = ey
-        return
-      elif me.action_points >= me.shoot_cost and CanShoot(me, enemy, world):
-        move.action = ActionType.SHOOT
-        move.x, move.y = ex, ey
-        return
-      elif me.action_points >= me.shoot_cost + MoveCost(me, game):
+    tactics = []
+    # TODO: Write simple DFS for actions on each step.
+    if context.enemies:
+      for where, enemy in context.enemies.iteritems():
+        p = plan.ShootDirect(context, where)
+        if p.IsPossible():
+          tactics.append(p)
+        for d in ALL_DIRS:
+          p1 = Point(x=where.x + d.x, y=where.y + d.y)
+          p = plan.ThrowGrenade(context, p1)
+          if p.IsPossible():
+            tactics.append(p)
+
+    if tactics:
+      best = tactics[0]
+      for t in tactics[1:]:
+        if t.IsBetter(best):
+          best = t
+      best.SetNextStep(move)
+      return
+
+    if context.enemies:
+      if me.action_points >= me.shoot_cost + util.MoveCost(me, game):
         if self.GoTo(GOAL, context, move):
           if move.x == GOAL.x and move.y == GOAL.y:
             print 'achieved'
@@ -160,23 +167,9 @@ class MyStrategy(object):
     return False
 
 
-def CanShoot(me, enemy, world):
-  return world.is_visible(me.shooting_range, me.x, me.y, me.stance, enemy.x, enemy.y, enemy.stance)
-
-
 def FindCornerToRun(trooper):
   """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""
   assert trooper.teammate
   x = 0 if trooper.x < X / 2 else X - 1
   y = 0 if (trooper.y > (Y / 2)) else Y - 1
   return Point(x=x, y=y)
-
-
-def MoveCost(trooper, game):
-  if trooper.stance == TrooperStance.STANDING:
-    return game.standing_move_cost
-  elif trooper.stance == TrooperStance.KNEELING:
-    return game.kneeling_move_cost
-  else:
-    assert trooper.stance == TrooperStance.PRONE
-    return game.prone_move_cost
