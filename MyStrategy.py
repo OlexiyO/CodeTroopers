@@ -2,6 +2,7 @@ from random import getrandbits
 import time
 
 from collections import namedtuple
+from context import Context
 from model.CellType import CellType
 from model.ActionType import ActionType
 from model.Direction import Direction
@@ -10,24 +11,12 @@ from model.Move import Move
 from model.Trooper import Trooper
 from model.TrooperStance import TrooperStance
 from model.World import World
+from constants import *
 
 
-Point = namedtuple('Point', ['x', 'y'])
-NORTH = Point(x=0, y=-1)
-SOUTH = Point(x=0, y=1)
-EAST = Point(x=1, y=0)
-WEST = Point(x=-1, y=0)
-ALL_DIRS = [NORTH, SOUTH, EAST, WEST]
-Y = 20
-X = 30
-CELLS = None
 GOAL = None
 INITIALIZED = False
 distances = [list([None] * Y) for _ in xrange(X)]
-UNITS = {}
-
-IsInside = lambda x, y: (0 <= x < X) and (0 <= y < Y)
-IsPassable = lambda x, y: IsInside(x, y) and CELLS[x][y] == 0 and (x, y) not in UNITS
 
 def logmove(func):
   def F(*args, **kwargs):
@@ -42,11 +31,11 @@ def logmove(func):
 
 class MyStrategy(object):
 
-  def _PrecomputeDistances(self):
+  def _PrecomputeDistances(self, context):
     row = [1000] * Y
     for x_ in xrange(X):
       for y_ in xrange(Y):
-        if CELLS[x_][y_] == CellType.FREE:
+        if context.world.cells[x_][y_] == CellType.FREE:
           if x_ >= X / 2:
             other = distances[X - x_ - 1][y_]
             distances[x_][y_] = [other[X - i - 1] for i in xrange(X)]
@@ -69,32 +58,30 @@ class MyStrategy(object):
             for d in ALL_DIRS:
               x1 = x + d.x
               y1 = y + d.y
-              if IsPassable(x1, y1) and (data[x1][y1] > t):
+              if context.IsPassable(x1, y1) and (data[x1][y1] > t):
                 data[x1][y1] = t
                 q[lastp] = x1
                 q[lastp + 1] = y1
                 lastp += 2
           distances[x_][y_] = data
 
-  def Init(self, me, world, game):
+  def Init(self, context):
     global INITIALIZED
     INITIALIZED = True
-    global CELLS
-    if CELLS is None:
-      CELLS = world.cells
     global GOAL
-    GOAL = FindCornerToRun(me)
+    GOAL = FindCornerToRun(context.me)
 
     t = time.time()
-    self._PrecomputeDistances()
+    self._PrecomputeDistances(context)
     dt = time.time() - t
     print '%.2f' % dt
 
   @logmove
   def move(self, me, world, game, move):
+    context = Context(me, world, game)
     global INITIALIZED
     if not INITIALIZED:
-      self.Init(me, world, game)
+      self.Init(context)
     global UNITS
     UNITS = {(T.x, T.y) : T for T in world.troopers}
     if me.action_points < 2:
@@ -106,6 +93,15 @@ class MyStrategy(object):
     if enemies:
       (ex, ey), enemy = min(enemies.iteritems(), key=lambda x: x[1].hitpoints)
       GOAL = Point(x=ex, y=ey)
+    elif GOAL is None:
+      x_stays = getrandbits(1)
+      x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
+      y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
+      print 'GGGG', x_stays, me.x, me.y, x, y
+      GOAL = Point(x=x, y=y)
+
+    if enemies:
+      (ex, ey), enemy = min(enemies.iteritems(), key=lambda x: x[1].hitpoints)
       if (me.holding_grenade and
           me.action_points >= game.grenade_throw_cost and
           me.get_distance_to(ex, ey) <= game.grenade_throw_range and
@@ -119,24 +115,18 @@ class MyStrategy(object):
         move.x, move.y = ex, ey
         return
       elif me.action_points >= me.shoot_cost + MoveCost(me, game):
-        if self.GoTo(GOAL, me, world, game, move):
+        if self.GoTo(GOAL, context, move):
           if move.x == GOAL.x and move.y == GOAL.y:
             print 'achieved'
             GOAL = None
           return
         move.action = ActionType.END_TURN
-      elif self.RunAway(GOAL, me, world, game, move):
+      elif self.RunAway(GOAL, context, move):
         return
       move.action = ActionType.END_TURN
       return
     else:
-      if GOAL is None:
-        x_stays = getrandbits(1)
-        x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
-        y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
-        print 'GGGG', x_stays, me.x, me.y, x, y
-        GOAL = Point(x=x, y=y)
-      if self.GoTo(GOAL, me, world, game, move):
+      if self.GoTo(GOAL, context, move):
         if move.x == GOAL.x and move.y == GOAL.y:
           print 'achieved'
           GOAL = None
@@ -144,24 +134,26 @@ class MyStrategy(object):
       else:
         move.action = ActionType.END_TURN
 
-  def RunAway(self, where, me, world, game, move):
+  def RunAway(self, where, context, move):
     data = distances[where.x][where.y]
+    me = context.me
     current_dist = data[me.x][me.y]
     for dir in ALL_DIRS:
       x1, y1 = me.x + dir.x, me.y + dir.y
-      if IsPassable(x1, y1) and data[x1][y1] > current_dist:
+      if context.IsPassable(x1, y1) and data[x1][y1] > current_dist:
         move.action = ActionType.MOVE
         move.x, move.y = x1, y1
         return True
     return False
 
-  def GoTo(self, where, me, world, game, move):
+  def GoTo(self, where, context, move):
     """Tells unit 'me' to run to 'where'."""
     data = distances[where.x][where.y]
+    me = context.me
     current_dist = data[me.x][me.y]
     for dir in ALL_DIRS:
       x1, y1 = me.x + dir.x, me.y + dir.y
-      if IsPassable(x1, y1) and data[x1][y1] < current_dist:
+      if context.IsPassable(x1, y1) and data[x1][y1] < current_dist:
         move.action = ActionType.MOVE
         move.x, move.y = x1, y1
         return True
