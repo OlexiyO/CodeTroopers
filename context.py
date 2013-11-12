@@ -13,7 +13,10 @@ class Context(object):
     return (0 <= x < X) and (0 <= y < Y)
 
   def IsPassable(self, x, y):
-    return self.IsInside(x, y) and self.world.cells[x][y] == CellType.FREE and Point(x=x, y=y) not in self.units
+    return self.IsInside(x, y) and self.world.cells[x][y] == CellType.FREE
+
+  def CanMoveTo(self, x, y):
+    return self.IsPassable(x, y) and Point(x=x, y=y) not in self.units
 
   def GetEnemyAt(self, point):
     return self.enemies.get(point, None)

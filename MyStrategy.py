@@ -60,7 +60,7 @@ class MyStrategy(object):
             for d in ALL_DIRS:
               x1 = x + d.x
               y1 = y + d.y
-              if context.IsPassable(x1, y1) and (data[x1][y1] > t):
+              if context.IsPassable(x1, y1) and data[x1][y1] > t:
                 data[x1][y1] = t
                 q[lastp] = x1
                 q[lastp + 1] = y1
@@ -147,7 +147,7 @@ class MyStrategy(object):
     current_dist = data[me.x][me.y]
     for dir in ALL_DIRS:
       x1, y1 = me.x + dir.x, me.y + dir.y
-      if context.IsPassable(x1, y1) and data[x1][y1] > current_dist:
+      if context.CanMoveTo(x1, y1) and data[x1][y1] > current_dist:
         move.action = ActionType.MOVE
         move.x, move.y = x1, y1
         return True
@@ -160,7 +160,7 @@ class MyStrategy(object):
     current_dist = data[me.x][me.y]
     for dir in ALL_DIRS:
       x1, y1 = me.x + dir.x, me.y + dir.y
-      if context.IsPassable(x1, y1) and data[x1][y1] < current_dist:
+      if context.CanMoveTo(x1, y1) and data[x1][y1] < current_dist:
         move.action = ActionType.MOVE
         move.x, move.y = x1, y1
         return True

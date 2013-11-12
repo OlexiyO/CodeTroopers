@@ -41,6 +41,6 @@ class Repeater:
 
 from subprocess import call
 P = 'C:/Coding/CodeTroopers/Repeater/repeater.bat'
-token = None
+token = 'd1c0189e796e1f6e4f9e0424735e5d13e1126b92'
 call([P, token], shell=True)
 Repeater().run()
