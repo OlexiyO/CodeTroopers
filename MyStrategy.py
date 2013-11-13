@@ -15,10 +15,20 @@ from constants import *
 import plan
 import util
 
-
+# TODO: Move everything to globals.
 GOAL = None
 INITIALIZED = False
+TOTAL_UNITS = None
+UNITS_ORDER = []
+PLAYERS_ORDER = None
+ENEMIES = []
 distances = [list([None] * Y) for _ in xrange(X)]
+class PlayerOrder:
+  UNKNOWN = 0
+  BEFORE_ME = 1
+  AFTER_ME = 2
+
+
 
 def logmove(func):
   def F(*args, **kwargs):
@@ -68,15 +78,29 @@ class MyStrategy(object):
           distances[x_][y_] = data
 
   def Init(self, context):
+    global PLAYERS_ORDER
     global INITIALIZED
     INITIALIZED = True
     global GOAL
     GOAL = FindCornerToRun(context.me)
+    global TOTAL_UNITS
+    TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
+    PLAYERS_ORDER = { CONTINUE FROM HERE }
 
     t = time.time()
     self._PrecomputeDistances(context)
     dt = time.time() - t
     print '%.2f' % dt
+
+  def _PreMove(self, context):
+    global TOTAL_UNITS
+    global UNITS_ORDER
+    global ENEMIES
+    if len(UNITS_ORDER) >= TOTAL_UNITS:
+      return
+    UNITS_ORDER.append(context.me.trooper_type.type)
+    # TODO: Update global_enemies
+    # TODO: Update which player moves before and after me.
 
   @logmove
   def move(self, me, world, game, move):
@@ -84,6 +108,8 @@ class MyStrategy(object):
     global INITIALIZED
     if not INITIALIZED:
       self.Init(context)
+    _PreMove(context)
+    
     if me.action_points < 2:
       move.action = ActionType.END_TURN
       return
