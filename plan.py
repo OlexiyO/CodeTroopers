@@ -75,6 +75,7 @@ class ThrowGrenade(Plan):
     move.y = self.where.y
 
   def GetProfit(self):
+    # TODO: Account for damage to my own units.
     total = 0
     game = self.context.game
     enemy = self.context.GetEnemyAt(self.where)
