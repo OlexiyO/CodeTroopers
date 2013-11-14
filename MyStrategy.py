@@ -19,10 +19,11 @@ GOAL = None
 INITIALIZED = False
 TOTAL_UNITS = None
 UNITS_ORDER = []
-ENEMIES = []
+ENEMIES = {}
 distances = [list([None] * Y) for _ in xrange(X)]
 PREV_MOVE_INDEX = None
 PREV_MOVE_TYPE = None
+PREV_ACTION = None
 
 
 def UnitsMoveInOrder(u1, u2, u3):
@@ -103,7 +104,21 @@ class MyStrategy(object):
                  context.me.type == PREV_MOVE_TYPE)
 
     # TODO: Don't drop enemies between turns.
-    res = ENEMIES if same_move else {}
+    res = None
+    if same_move:
+      if PREV_ACTION in [ActionType.SHOOT, ActionType.THROW_GRENADE]:
+        # We were shooting -- so we could killed someone, and our vision didn't change.
+        # It could changed if we killed ourselves, but we ignore this for now.
+        res = {}
+      else:
+        # We were moving -- so enemies are still there.
+        res = ENEMIES
+    else:
+      res = dict([(p, enemy) for p, enemy in ENEMIES.iteritems()
+                  if (enemy.type != context.me.type and
+                      enemy.type != PREV_MOVE_TYPE and
+                      not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type))])
+
     for xy, enemy in context.enemies.iteritems():
       res[xy] = enemy
 
@@ -120,9 +135,10 @@ class MyStrategy(object):
       print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
     global PREV_MOVE_TYPE
     global PREV_MOVE_INDEX
+    global PREV_ACTION
     PREV_MOVE_TYPE = me.type
     PREV_MOVE_INDEX = world.move_index
-
+    PREV_ACTION = move.action
 
   def RealMove(self, me, world, game, move):
     context = Context(me, world, game)

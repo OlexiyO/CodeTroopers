@@ -96,22 +96,22 @@ class ThrowGrenade(Plan):
     move.x = self.where.x
     move.y = self.where.y
 
+  def _GrenadeDamageAt(self, where, dmg):
+    if where in self.context.enemies:
+      return  util.ComputeDamage(self.context.enemies[where], dmg)
+    elif where in self.context.allies:
+      return -util.ComputeDamage(self.context.allies[where], dmg)
+    elif self.context.CanHaveHiddenEnemy(where):
+      return dmg * params.HIDDEN_NEIGHBOR_RATIO
+    else:
+      return 0
+
   def GetProfit(self):
-    # TODO: Account for damage to my own units.
-    total = 0
     game = self.context.game
-    enemy = self.context.GetEnemyAt(self.where)
-    if enemy is not None:
-      total += util.ComputeDamage(enemy, game.grenade_direct_damage)
-    elif self.context.CanHaveHiddenEnemy(self.where):
-      total += game.grenade_direct_damage * params.HIDDEN_NEIGHBOR_RATIO
+    total = self._GrenadeDamageAt(self.where, game.grenade_direct_damage)
     for d in ALL_DIRS:
       p1 = Point(x=self.where.x + d.x, y=self.where.y + d.y)
-      enemy = self.context.GetEnemyAt(p1)
-      if enemy is not None:
-        total += util.ComputeDamage(enemy, game.grenade_collateral_damage)
-      elif self.context.CanHaveHiddenEnemy(p1):
-        total += game.grenade_collateral_damage * params.HIDDEN_NEIGHBOR_RATIO
+      total += self._GrenadeDamageAt(p1, game.grenade_collateral_damage)
     return total
 
   def GetCost(self):
