@@ -1,7 +1,6 @@
 from random import getrandbits
 import time
 
-from collections import namedtuple
 from context import Context
 from model.CellType import CellType
 from model.ActionType import ActionType
@@ -20,27 +19,24 @@ GOAL = None
 INITIALIZED = False
 TOTAL_UNITS = None
 UNITS_ORDER = []
-PLAYERS_ORDER = {}
 ENEMIES = []
 distances = [list([None] * Y) for _ in xrange(X)]
-LAST_MOVE_INDEX = None
-LAST_MOVE_TY PE = None
+PREV_MOVE_INDEX = None
+PREV_MOVE_TYPE = None
 
 
-class PlayerOrder:
-  BEFORE_ME = 1
-  AFTER_ME = 2
-
-
-def logmove(func):
-  def F(*args, **kwargs):
-    func(*args, **kwargs)
-    move = args[-1]
-    if move.action == ActionType.END_TURN:
-      print 'pass'
-    else:
-      print move.action, move.x, move.y
-  return F
+def UnitsMoveInOrder(u1, u2, u3):
+  assert u1 != u2, '%s != %s' % (u1, u2)
+  assert u2 != u3, '%s != %s' % (u2, u3)
+  assert u1 != u3, '%s != %s' % (u1, u3)
+  assert len(UNITS_ORDER) == TOTAL_UNITS
+  n1 = UNITS_ORDER.index(u1)
+  n2 = UNITS_ORDER.index(u2)
+  n3 = UNITS_ORDER.index(u3)
+  if n1 < n3:
+    return n1 < n2 < n3
+  else:
+    return n2 > n1 or n2 < n3
 
 
 class MyStrategy(object):
@@ -91,49 +87,21 @@ class MyStrategy(object):
     self._PrecomputeDistances(context)
     dt = time.time() - t
     print '%.2f' % dt
-  
-  def _UpdatePlayersOrder(self, context):
-    global ENEMIES
-    global UNITS_ORDER
-    global TOTAL_UNITS
-    global PLAYERS_ORDER
-    if len(context.allies) == 1:
-      # Only one player left; can't figure out anything.
-      return
-    
-    for xy, enemy in context.enemies.iteritems():
-      if xy not in ENEMIES:
-        assert len(UNITS_ORDER) == TOTAL_UNITS, UNITS_ORDER
-        player_id = enemy.player_id
-        unit_type = enemy.trooper_type
-        if unit_type == context.me.trooper_type:
-          new_order = PlayerOrder.BEFORE_ME
-        elif unit_type == LAST_MOVE_TYPE:
-          new_order = PlayerOrder.AFTER_ME
-        else:
-          assert False  # Write an assertion here.
-          new_order = None
-
-        if new_order is not None:
-          if player_id in PLAYERS_ORDER:
-            assert PLAYERS_ORDER[player_id] == new_order
-          else:
-            PLAYERS_ORDER[player_id] = new_order
     
   def _PreMove(self, context):
     global TOTAL_UNITS
     global UNITS_ORDER
     global ENEMIES
-    if len(UNITS_ORDER) != TOTAL_UNITS:
-      UNITS_ORDER.append(context.me.trooper_type)
+    global PREV_MOVE_INDEX
+    global PREV_MOVE_TYPE
+    if context.me.type not in UNITS_ORDER:
+      assert context.world.move_index == 0, context.world.move_index
+      UNITS_ORDER.append(context.me.type)
     
     # Update enemies.
-    same_move = (context.world.move_index == LAST_MOVE_INDEX and
-                 context.me.trooper_type == LAST_MOVE_TYPE)
-    # See whether we see any new guy.
-    if not same_move:
-      self._UpdatePlayersOrder(context)
-        
+    same_move = (context.world.move_index == PREV_MOVE_INDEX and
+                 context.me.type == PREV_MOVE_TYPE)
+
     # TODO: Don't drop enemies between turns.
     res = ENEMIES if same_move else {}
     for xy, enemy in context.enemies.iteritems():
@@ -142,14 +110,26 @@ class MyStrategy(object):
     context.enemies = res
     ENEMIES = res
 
+  # TODO: Refactor move into Before --> Decide --> After
 
-  @logmove
   def move(self, me, world, game, move):
+    self.RealMove(me, world, game, move)
+    if move.action == ActionType.END_TURN:
+      print 'pass'
+    else:
+      print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
+    global PREV_MOVE_TYPE
+    global PREV_MOVE_INDEX
+    PREV_MOVE_TYPE = me.type
+    PREV_MOVE_INDEX = world.move_index
+
+
+  def RealMove(self, me, world, game, move):
     context = Context(me, world, game)
     global INITIALIZED
     if not INITIALIZED:
       self.Init(context)
-    _PreMove(context)
+    self._PreMove(context)
     
     if me.action_points < 2:
       move.action = ActionType.END_TURN
@@ -165,27 +145,32 @@ class MyStrategy(object):
       y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
       print 'GGGG', x_stays, me.x, me.y, x, y
       GOAL = Point(x=x, y=y)
+      if GOAL in context.allies or context.world.cells != CellType.FREE:
+        GOAL = ClosestEmptyCell(context, GOAL)
 
     tactics = []
     # TODO: Write simple DFS for actions on each step.
-    
+
+    if context.enemies and me.holding_field_ration:
+      move.action = ActionType.EAT_FIELD_RATION
+      return
+
     for where, enemy in context.enemies.iteritems():
-      p = plan.ShootDirect(context, where)
-      if p.IsPossible():
-        tactics.append(p)
+      tactics.append(plan.ShootDirect(context, where))
       for d in ALL_DIRS:
         p1 = Point(x=where.x + d.x, y=where.y + d.y)
-        p = plan.ThrowGrenade(context, p1)
-        if p.IsPossible():
-          tactics.append(p)
+        tactics.append(plan.ThrowGrenade(context, p1))
+    tactics.append(plan.HealYourself(context))
 
+    tactics = [t for t in tactics if t.IsPossible()]
     if tactics:
       best = tactics[0]
       for t in tactics[1:]:
         if t.IsBetter(best):
           best = t
-      best.SetNextStep(move)
-      return
+      if best.GetProfit() > 0:
+        best.SetNextStep(move)
+        return
 
     if context.enemies:
       if me.action_points >= me.shoot_cost + util.MoveCost(me, game):
@@ -201,12 +186,13 @@ class MyStrategy(object):
       return
     else:
       if self.GoTo(GOAL, context, move):
-        if move.x == GOAL.x and move.y == GOAL.y:
-          print 'achieved'
-          GOAL = None
-        return
+        pass
       else:
         move.action = ActionType.END_TURN
+      dist = distances[GOAL.x][GOAL.y]
+      md = max(dist[p.x][p.y] for p in context.allies)
+      if md < 4:
+        GOAL = None
 
   def RunAway(self, where, context, move):
     data = distances[where.x][where.y]
@@ -240,3 +226,14 @@ def FindCornerToRun(trooper):
   x = 0 if trooper.x < X / 2 else X - 1
   y = 0 if (trooper.y > (Y / 2)) else Y - 1
   return Point(x=x, y=y)
+
+
+def ClosestEmptyCell(context, to):
+  for dist in range(1, 10):
+    for dx in range(dist + 1):
+      for dy in range(dist + 1 - dx):
+        for x in (-dx, dx):
+          for y in (-dy, dy):
+            if context.CanMoveTo(to.x + x, to.y + y):
+              return Point(to.x + x, to.y + y)
+  return None

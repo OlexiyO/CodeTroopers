@@ -1,5 +1,6 @@
 from constants import *
 from model.ActionType import ActionType
+from model.Direction import Direction
 import params
 import util
 
@@ -55,6 +56,25 @@ class ShootDirect(Plan):
 
   def GetCost(self):
     return self.me.shoot_cost
+
+
+class HealYourself(Plan):
+
+  def IsPossible(self):
+    me = self.context.me
+    return (me.action_points >= self.context.game.medikit_use_cost and
+            me.holding_medikit)
+
+  def SetNextStep(self, move):
+    move.action = ActionType.USE_MEDIKIT
+    move.direction = Direction.CURRENT_POINT
+
+  def GetProfit(self):
+    return (min(self.context.game.medikit_heal_self_bonus_hitpoints, 100 - self.me.hitpoints) - 10) * params.HEAL_DISCOUNT
+
+  def GetCost(self):
+    # Used medikit
+    return self.context.me.medikit_use_cost + .5
 
 
 class ThrowGrenade(Plan):

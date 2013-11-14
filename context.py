@@ -8,6 +8,7 @@ class Context(object):
     self.game = game
     self.units = {Point(x=T.x, y=T.y) : T for T in world.troopers}
     self.enemies = {p: T for p, T in self.units.iteritems() if not T.teammate}
+    self.allies = {p: T for p, T in self.units.iteritems() if T.teammate}
 
   def IsInside(self, x, y):
     return (0 <= x < X) and (0 <= y < Y)
