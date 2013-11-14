@@ -117,7 +117,8 @@ class MyStrategy(object):
       res = dict([(p, enemy) for p, enemy in ENEMIES.iteritems()
                   if (enemy.type != context.me.type and
                       enemy.type != PREV_MOVE_TYPE and
-                      not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type))])
+                      # len(UNITS_ORDER) < TOTAL_UNITS means this is very first move.
+                      (len(UNITS_ORDER) < TOTAL_UNITS or not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type)))])
 
     for xy, enemy in context.enemies.iteritems():
       res[xy] = enemy
@@ -130,7 +131,7 @@ class MyStrategy(object):
   def move(self, me, world, game, move):
     self.RealMove(me, world, game, move)
     if move.action == ActionType.END_TURN:
-      print 'pass'
+      print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'pass:', me.action_points
     else:
       print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
     global PREV_MOVE_TYPE
