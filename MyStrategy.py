@@ -20,14 +20,16 @@ GOAL = None
 INITIALIZED = False
 TOTAL_UNITS = None
 UNITS_ORDER = []
-PLAYERS_ORDER = None
+PLAYERS_ORDER = {}
 ENEMIES = []
 distances = [list([None] * Y) for _ in xrange(X)]
+LAST_MOVE_INDEX = None
+LAST_MOVE_TY PE = None
+
+
 class PlayerOrder:
-  UNKNOWN = 0
   BEFORE_ME = 1
   AFTER_ME = 2
-
 
 
 def logmove(func):
@@ -78,29 +80,68 @@ class MyStrategy(object):
           distances[x_][y_] = data
 
   def Init(self, context):
-    global PLAYERS_ORDER
     global INITIALIZED
     INITIALIZED = True
     global GOAL
     GOAL = FindCornerToRun(context.me)
     global TOTAL_UNITS
     TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
-    PLAYERS_ORDER = { CONTINUE FROM HERE }
 
     t = time.time()
     self._PrecomputeDistances(context)
     dt = time.time() - t
     print '%.2f' % dt
+  
+  def _UpdatePlayersOrder(self, context):
+    global ENEMIES
+    global UNITS_ORDER
+    global TOTAL_UNITS
+    global PLAYERS_ORDER
+    if len(context.allies) == 1:
+      # Only one player left; can't figure out anything.
+      return
+    
+    for xy, enemy in context.enemies.iteritems():
+      if xy not in ENEMIES:
+        assert len(UNITS_ORDER) == TOTAL_UNITS, UNITS_ORDER
+        player_id = enemy.player_id
+        unit_type = enemy.trooper_type
+        if unit_type == context.me.trooper_type:
+          new_order = PlayerOrder.BEFORE_ME
+        elif unit_type == LAST_MOVE_TYPE:
+          new_order = PlayerOrder.AFTER_ME
+        else:
+          assert False  # Write an assertion here.
+          new_order = None
 
+        if new_order is not None:
+          if player_id in PLAYERS_ORDER:
+            assert PLAYERS_ORDER[player_id] == new_order
+          else:
+            PLAYERS_ORDER[player_id] = new_order
+    
   def _PreMove(self, context):
     global TOTAL_UNITS
     global UNITS_ORDER
     global ENEMIES
-    if len(UNITS_ORDER) >= TOTAL_UNITS:
-      return
-    UNITS_ORDER.append(context.me.trooper_type.type)
-    # TODO: Update global_enemies
-    # TODO: Update which player moves before and after me.
+    if len(UNITS_ORDER) != TOTAL_UNITS:
+      UNITS_ORDER.append(context.me.trooper_type)
+    
+    # Update enemies.
+    same_move = (context.world.move_index == LAST_MOVE_INDEX and
+                 context.me.trooper_type == LAST_MOVE_TYPE)
+    # See whether we see any new guy.
+    if not same_move:
+      self._UpdatePlayersOrder(context)
+        
+    # TODO: Don't drop enemies between turns.
+    res = ENEMIES if same_move else {}
+    for xy, enemy in context.enemies.iteritems():
+      res[xy] = enemy
+
+    context.enemies = res
+    ENEMIES = res
+
 
   @logmove
   def move(self, me, world, game, move):
@@ -127,16 +168,16 @@ class MyStrategy(object):
 
     tactics = []
     # TODO: Write simple DFS for actions on each step.
-    if context.enemies:
-      for where, enemy in context.enemies.iteritems():
-        p = plan.ShootDirect(context, where)
+    
+    for where, enemy in context.enemies.iteritems():
+      p = plan.ShootDirect(context, where)
+      if p.IsPossible():
+        tactics.append(p)
+      for d in ALL_DIRS:
+        p1 = Point(x=where.x + d.x, y=where.y + d.y)
+        p = plan.ThrowGrenade(context, p1)
         if p.IsPossible():
           tactics.append(p)
-        for d in ALL_DIRS:
-          p1 = Point(x=where.x + d.x, y=where.y + d.y)
-          p = plan.ThrowGrenade(context, p1)
-          if p.IsPossible():
-            tactics.append(p)
 
     if tactics:
       best = tactics[0]
