@@ -29,6 +29,8 @@ class Plan(object):
   def GetCost(self):
     raise NotImplementedError
 
+# TODO: Among different enemies, pick ones with the most damage.
+# TODO: Among different enemies, pick ones who will move next.
 
 class ShootDirect(Plan):
 
@@ -75,6 +77,7 @@ class ThrowGrenade(Plan):
     move.y = self.where.y
 
   def GetProfit(self):
+    # TODO: Account for damage to my own units.
     total = 0
     game = self.context.game
     enemy = self.context.GetEnemyAt(self.where)
