@@ -1,3 +1,4 @@
+import math
 from model.TrooperStance import TrooperStance
 import params
 
@@ -15,13 +16,13 @@ def MoveCost(trooper, game):
     return game.prone_move_cost
 
 
-def ShootDamage(trooper):
-  if trooper.stance == TrooperStance.STANDING:
+def ShootDamage(trooper, trooper_stance):
+  if trooper_stance == TrooperStance.STANDING:
     return trooper.standing_damage
-  elif trooper.stance == TrooperStance.KNEELING:
+  elif trooper_stance == TrooperStance.KNEELING:
     return trooper.kneeling_damage
   else:
-    assert trooper.stance == TrooperStance.PRONE
+    assert trooper_stance == TrooperStance.PRONE
     return trooper.prone_damage
 
 
@@ -30,3 +31,18 @@ def ComputeDamage(enemy, dmg):
   realdmg = min(dmg, enemy.hitpoints)
   return realdmg + params.KILL_EXTRA_PROFIT if realdmg == enemy.hitpoints else realdmg
 
+
+def CheckType(obj, T):
+  assert isinstance(obj, T), 'Type %s, but is %s' % (T, type(obj))
+
+
+def Dist(pa, pb):
+  return math.hypot(pa.x - pb.x, pa.y - pb.y)
+
+
+def NextCell(pa, pb):
+  return abs(pa.x - pb.x) + abs(pa.y - pb.y) == 1
+
+
+def ReduceHP(hp, dmg):
+  return max(0, hp - dmg)

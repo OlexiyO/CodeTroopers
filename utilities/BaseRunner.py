@@ -1,7 +1,7 @@
 import sys
 from MyStrategy import MyStrategy
-from RemoteProcessClient import RemoteProcessClient
 from model.Move import Move
+from utilities.RemoteProcessClient import RemoteProcessClient
 
 
 class Runner:
@@ -37,9 +37,3 @@ class Runner:
                 self.remote_process_client.write_move(move)
         finally:
             self.remote_process_client.close()
-
-
-from subprocess import call
-P = 'C:/Coding/CodeTroopers/Runner/local-runner.bat'
-call([P], shell=True)
-Runner().run()

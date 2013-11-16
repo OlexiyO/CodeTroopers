@@ -18,9 +18,6 @@ class Plan(object):
   def SetNextStep(self, move):
     raise NotImplementedError
 
-  def Compute(self):
-    raise NotImplementedError
-
   def IsPossible(self):
     raise NotImplementedError
 
@@ -52,7 +49,7 @@ class ShootDirect(Plan):
     move.y = self.where.y
 
   def GetProfit(self):
-    return util.ComputeDamage(self.enemy, util.ShootDamage(self.context.me))
+    return util.ComputeDamage(self.enemy, util.ShootDamage(self.context.me, self.context.me.stance))
 
   def GetCost(self):
     return self.me.shoot_cost

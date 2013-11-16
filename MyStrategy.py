@@ -11,16 +11,15 @@ from model.Trooper import Trooper
 from model.TrooperStance import TrooperStance
 from model.World import World
 from constants import *
+from globals import *
 import plan
 import util
 
-# TODO: Move everything to globals.
 GOAL = None
 INITIALIZED = False
 TOTAL_UNITS = None
 UNITS_ORDER = []
 ENEMIES = {}
-distances = [list([None] * Y) for _ in xrange(X)]
 PREV_MOVE_INDEX = None
 PREV_MOVE_TYPE = None
 PREV_ACTION = None
@@ -113,12 +112,15 @@ class MyStrategy(object):
       else:
         # We were moving -- so enemies are still there.
         res = ENEMIES
-    else:
+    elif context.me.type != PREV_MOVE_TYPE:
       res = dict([(p, enemy) for p, enemy in ENEMIES.iteritems()
                   if (enemy.type != context.me.type and
                       enemy.type != PREV_MOVE_TYPE and
                       # len(UNITS_ORDER) < TOTAL_UNITS means this is very first move.
                       (len(UNITS_ORDER) < TOTAL_UNITS or not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type)))])
+    else:
+      res = {}
+
 
     for xy, enemy in context.enemies.iteritems():
       res[xy] = enemy
