@@ -121,7 +121,6 @@ class MyStrategy(object):
     else:
       res = {}
 
-
     for xy, enemy in context.enemies.iteritems():
       res[xy] = enemy
 

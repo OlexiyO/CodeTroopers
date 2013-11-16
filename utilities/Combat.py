@@ -15,9 +15,16 @@ t1.start()
 import time
 time.sleep(2)
 
+R = 2
+
 def Player(n):
-  STRATEGY = 'C:/Coding/CodeTroopers/src/utilities/RunnerForCombat.py'
+  if n != R:
+    STRATEGY = 'C:/Coding/CodeTroopers/v7/utilities/RunnerForCombat.py'
+  else:
+    STRATEGY = 'C:/Coding/CodeTroopers/src/utilities/RunnerForCombat.py'
   call(['python', STRATEGY, 'localhost', str(31000 + n), '0000000000000000'], shell=True)
+
+
 
 for n in range(4):
   tp = Thread(target=Player, args=(n,))
