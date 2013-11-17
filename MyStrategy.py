@@ -1,26 +1,14 @@
 import cPickle as pickle
 import os
-import random
-from random import getrandbits
-import tempfile
 import time
-import datetime
 from actions import Position, MedikitYourself
 
 from context import Context
 import global_vars
 from model.CellType import CellType
 from model.ActionType import ActionType
-from model.Direction import Direction
-from model.Game import Game
-from model.Move import Move
-from model.Trooper import Trooper
-from model.TrooperStance import TrooperStance
-from model.World import World
 from constants import *
-import plan
 from search import Searcher
-import util
 
 GOAL = None
 INITIALIZED = False
