@@ -6,6 +6,10 @@ def CanShoot(me, enemy, world):
   return world.is_visible(me.shooting_range, me.x, me.y, me.stance, enemy.x, enemy.y, enemy.stance)
 
 
+def CanSee(me, enemy, world):
+  return world.is_visible(me.vision_range, me.x, me.y, me.stance, enemy.x, enemy.y, enemy.stance)
+
+
 def MoveCost(trooper, game):
   if trooper.stance == TrooperStance.STANDING:
     return game.standing_move_cost
@@ -46,3 +50,29 @@ def NextCell(pa, pb):
 
 def ReduceHP(hp, dmg):
   return max(0, hp - dmg)
+
+
+TOTAL_TIME = {}
+import time
+
+def TimeMe(func):
+  def Wrapped(*args, **kwargs):
+    x = time.time()
+    r = func(*args, **kwargs)
+    dt = time.time() - x
+    key = func.func_name
+    t0 = TOTAL_TIME.get(key, 0)
+    TOTAL_TIME[key] = t0 + dt
+    return r
+  return Wrapped
+
+
+@TimeMe
+def IsVisible(world, max_range, viewer_x, viewer_y, viewer_stance, object_x, object_y, object_stance):
+  if math.hypot(object_x - viewer_x, object_y - viewer_y) > max_range:
+    return False
+  min_stance_index = min(viewer_stance, object_stance)
+  cv = min_stance_index + 3 * (object_y + world.height * (object_x + world.width * (viewer_y + world.height * viewer_x)))
+  return ord(world.cell_visibilities[cv]) == 1
+
+
