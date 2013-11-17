@@ -44,20 +44,27 @@ class Position(object):
     self.holding_field_ration = me.holding_field_ration
 
 
-@util.TimeMe
-def CopyPosition(other):
-  return copy.deepcopy(other)
-
-
 class Action(object):
 
   def __init__(self, context):
     self.context = context
 
+  @util.TimeMe
   def Allowed(self, position):
     return (position.action_points >= self._ActionCost()) and self._IsPossible(position)
 
+  @util.TimeMe
   def Apply(self, position):
+    return self._Apply(position)
+
+  def _Apply(self, position):
+    raise NotImplementedError
+
+  @util.TimeMe
+  def Undo(self, position, info):
+    self._Undo(position, info)
+
+  def _Undo(self, position, info):
     raise NotImplementedError
 
   def SetMove(self, move):
@@ -69,14 +76,13 @@ class Action(object):
   def _IsPossible(self, position):
     raise NotImplementedError
 
-  def _CopyWithoutActionPoints(self, position):
-    res = CopyPosition(position)
-    res.action_points -= self._ActionCost()
-    if res.action_points < 0:
+  @util.TimeMe
+  def _SubtractActionPoints(self, position):
+    position.action_points -= self._ActionCost()
+    if position.action_points < 0:
       x = self.Allowed(position)
       print x
-      assert res.action_points >= 0, res.action_points
-    return res
+      assert position.action_points >= 0, position.action_points
 
 
 class NoneAction(Action):
@@ -84,8 +90,11 @@ class NoneAction(Action):
   def _IsPossible(self, position):
     return True
 
-  def Apply(self, position):
-    return position
+  def _Apply(self, position):
+    return None
+
+  def Revert(self, position):
+    pass
 
   def SetMove(self, move):
     move.action = ActionType.END_TURN
@@ -102,13 +111,19 @@ class Energizer(Action):
   def _ActionCost(self):
     return self.context.game.field_ration_eat_cost
 
-  def Apply(self, position):
-    res = self._CopyWithoutActionPoints(position)
-    res.action_points = min(res.action_points + self.context.game.field_ration_bonus_action_points,
-                            self.context.me.initial_action_points)
-    res.holding_field_ration = False
-    MaybePickupBonus(res, context)
-    return res
+  def _Apply(self, position):
+    ap = position.action_points
+    bonuses = dict(position.bonuses_present.iteritems())
+    self._SubtractActionPoints(position)
+    position.action_points = min(position.action_points + self.context.game.field_ration_bonus_action_points,
+                                 self.context.me.initial_action_points)
+    position.holding_field_ration = False
+    MaybePickupBonus(position, context)
+    return ap, bonuses
+
+  def _Undo(self, position, info):
+    position.holding_field_ration = True
+    position.action_points, position.bonuses_present = info
 
   def SetMove(self, move):
     move.action = ActionType.EAT_FIELD_RATION
@@ -123,12 +138,21 @@ class MedikitYourself(Action):
   def _ActionCost(self):
     return self.context.game.medikit_use_cost
 
-  def Apply(self, position):
-    res = self._CopyWithoutActionPoints(position)
-    res.allies_hp[res.loc] = max(100, res.allies_hp[res.loc] + self.context.game.medikit_heal_self_bonus_hitpoints)
-    res.holding_medikit = False
-    MaybePickupBonus(res, context)
-    return res
+  def _Apply(self, position):
+    ap = position.action_points
+    hp = dict(position.allies_hp.iteritems())
+    bonuses = dict(position.bonuses_present.iteritems())
+    self._SubtractActionPoints(position)
+    position.allies_hp[position.loc] = max(
+      100,
+      position.allies_hp[position.loc] + self.context.game.medikit_heal_self_bonus_hitpoints)
+    position.holding_medikit = False
+    MaybePickupBonus(position, context)
+    return ap, hp, bonuses
+
+  def _Undo(self, position, info):
+    position.holding_medikit = True
+    position.action_points, position.allies_hp, position.bonuses_present = info
 
   def SetMove(self, move):
     move.action = ActionType.USE_MEDIKIT
@@ -155,12 +179,22 @@ class Walk(Action):
   def _ActionCost(self):
     return util.MoveCost(self.context.me, self.context.game)
 
-  def Apply(self, position):
-    res = self._CopyWithoutActionPoints(position)
-    res.loc = self.where
-    res.allies_hp[res.loc] = res.allies_hp.pop(position.loc)
-    MaybePickupBonus(res, context)
-    return res
+  def _Apply(self, position):
+    ap = position.action_points
+    hp = dict(position.allies_hp.iteritems())
+    bonuses = dict(position.bonuses_present.iteritems())
+    old_loc = position.loc
+    what_i_have = position.holding_field_ration, position.holding_grenade, position.holding_medikit
+
+    self._SubtractActionPoints(position)
+    position.loc = self.where
+    position.allies_hp[position.loc] = position.allies_hp.pop(old_loc)
+    MaybePickupBonus(position, context)
+    return ap, hp, bonuses, old_loc, what_i_have
+
+  def _Undo(self, position, info):
+    position.action_points, position.allies_hp, position.bonuses_present, position.loc, what_i_have = info
+    position.holding_field_ration, position.holding_grenade, position.holding_medikit = what_i_have
 
   def SetMove(self, move):
     move.action = ActionType.MOVE
@@ -181,11 +215,17 @@ class Shoot(Action):
   def _ActionCost(self):
     return self.context.me.shoot_cost
 
-  def Apply(self, position):
-    res = self._CopyWithoutActionPoints(position)
+  def _Apply(self, position):
+    ap = position.action_points
+    ehp = dict(position.enemies_hp.iteritems())
+
+    self._SubtractActionPoints(position)
     max_dmg = util.ShootDamage(self.context.me, position.stance)
-    res.enemies_hp[self.where] = max(0, res.enemies_hp[self.where] - max_dmg)
-    return res
+    position.enemies_hp[self.where] = max(0, position.enemies_hp[self.where] - max_dmg)
+    return ap, ehp
+
+  def _Undo(self, position, info):
+    position.action_points, position.enemies_hp = info
 
   def SetMove(self, move):
     move.action = ActionType.SHOOT
@@ -208,20 +248,29 @@ class ThrowGrenade(Action):
      move.x = self.where.x
      move.y = self.where.y
 
-  def Apply(self, position):
-    res = self._CopyWithoutActionPoints(position)
+  def _Apply(self, position):
+    ap = position.action_points
+    hp = dict(position.allies_hp.iteritems())
+    ehp = dict(position.enemies_hp.iteritems())
+    bonuses = dict(position.bonuses_present.iteritems())
+
+    self._SubtractActionPoints(position)
 
     for p in self.context.enemies:
       if p == self.where:
-        res.enemies_hp[p] = util.ReduceHP(res.enemies_hp[p], self.context.game.grenade_direct_damage)
+        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
       elif util.NextCell(p, self.where):
-        res.enemies_hp[p] = util.ReduceHP(res.enemies_hp[p], self.context.game.grenade_direct_damage)
+        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
     for p in self.context.allies:
       if p == self.where:
-        res.allies_hp[p] = util.ReduceHP(res.allies_hp[p], self.context.game.grenade_direct_damage)
+        position.allies_hp[p] = util.ReduceHP(position.allies_hp[p], self.context.game.grenade_direct_damage)
       elif util.NextCell(p, self.where):
-        res.allies_hp[p] = util.ReduceHP(res.allies_hp[p], self.context.game.grenade_direct_damage)
+        position.allies_hp[p] = util.ReduceHP(position.allies_hp[p], self.context.game.grenade_direct_damage)
 
-    res.holding_grenade = False
-    MaybePickupBonus(res, context)
-    return res
+    position.holding_grenade = False
+    MaybePickupBonus(position, context)
+    return ap, hp, ehp, bonuses
+
+  def _Undo(self, position, info):
+    self.holding_grenade = True
+    position.action_points, position.allies_hp, position.enemies_hp, position.bonuses_present = info

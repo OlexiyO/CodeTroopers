@@ -14,6 +14,6 @@ P = 'C:/Coding/CodeTroopers/Runner/local-runner.bat'
 call([P], shell=True)
 Runner().run()
 
-print util.TOTAL_TIME
-print sorted(search.M, reverse=True)
-print sum(x[0] for x in search.M)
+print '\n'.join('%s: %.2f' % t for t in sorted(util.TOTAL_TIME.iteritems(), reverse=True, key=lambda x: x[1]))
+print '\n'.join('Move %d: %d' % (t[1], t[0]) for t in sorted(search.M, reverse=True))
+print 'Total:', sum(x[0] for x in search.M)

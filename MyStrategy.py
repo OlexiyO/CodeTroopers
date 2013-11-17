@@ -32,6 +32,7 @@ PREV_MOVE_TYPE = None
 PREV_ACTION = None
 
 LOG_DIR = None
+STDOUT_LOGGING = True
 
 
 def UnitsMoveInOrder(u1, u2, u3):
@@ -88,12 +89,14 @@ class MyStrategy(object):
     GOAL = FindCornerToRun(context.me)
     global TOTAL_UNITS
     TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
-    print 'Start from', context.me.x, context.me.y
+    if STDOUT_LOGGING:
+      print 'Start from', context.me.x, context.me.y
 
     t = time.time()
     self._PrecomputeDistances(context)
     dt = time.time() - t
-    print '%.2f' % dt
+    if STDOUT_LOGGING:
+      print '%.2f' % dt
     
   def _PreMove(self, context):
     global TOTAL_UNITS
@@ -158,10 +161,11 @@ class MyStrategy(object):
       self.Init(context)
     self._PreMove(context)
     self.RealMove(context, move)
-    if move.action == ActionType.END_TURN:
-      print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'pass:', me.action_points
-    else:
-      print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
+    if STDOUT_LOGGING:
+      if move.action == ActionType.END_TURN:
+        print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'pass:', me.action_points
+      else:
+        print 'Type %d at %02d:%02d' % (me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
     global PREV_MOVE_TYPE
     global PREV_MOVE_INDEX
     global PREV_ACTION
@@ -184,7 +188,8 @@ class MyStrategy(object):
       x_stays = 1  # getrandbits(1)
       x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
       y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
-      print 'GGGG', x_stays, me.x, me.y, x, y
+      if STDOUT_LOGGING:
+        print 'GGGG', x_stays, me.x, me.y, x, y
       GOAL = Point(x, y)
       if GOAL in context.allies or context.world.cells != CellType.FREE:
         GOAL = ClosestEmptyCell(context, GOAL)

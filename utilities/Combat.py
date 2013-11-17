@@ -3,6 +3,8 @@
 from subprocess import call
 from BaseRunner import Runner
 
+SHARED_ID = None #'0000000000000000'
+
 
 def Server(map_name=None):
   cmd = ('start java -cp .;local-runner.jar Run -move-count=50'
@@ -22,7 +24,7 @@ def Player(n):
   else:
     D = 'C:/Coding/CodeTroopers/src/'
     STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
-  call(['python', STRATEGY, 'localhost', str(31000 + n), '0000000000000000'], shell=True, cwd=D)
+  call(['python', STRATEGY, 'localhost', str(31000 + n), SHARED_ID or '0000000000000000'], shell=True, cwd=D)
 
 from threading import Thread
 t1 = Thread(target=Server, args=('map1',))

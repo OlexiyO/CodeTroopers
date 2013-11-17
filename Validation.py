@@ -4,9 +4,12 @@ import threading
 import random
 import time
 from subprocess import call
+import MyStrategy
 
 print 'Running my strategy vs Version 7 multiple times.'
 PORT = 31000
+
+MyStrategy.STDOUT_LOGGING = False
 
 def RunServer(map_name, my_player_index, output_file):
   base_cmd = 'start java -cp .;local-runner.jar Run %(flags)s "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer"'
@@ -17,7 +20,7 @@ def RunServer(map_name, my_player_index, output_file):
     'p1-name': 'v7_P1', 'p2-name': 'v7_p2', 'p3-name': 'v7_p3', 'p4-name': 'v7_p4',
     'p1-team-size': 3, 'p2-team-size': 3, 'p3-team-size': 3, 'p4-team-size': 3,
     'results-file': output_file}
-  if map_name is not None:
+  if map_name is not None and map_name != 'default':
     flags_dict['map'] = '%s.map' % map_name
   key = 'p%d-name' % (my_player_index + 1)
   assert key in flags_dict, key
@@ -69,7 +72,6 @@ def RunOneCombat(map):
 
 
 def RunManyCombats(N, map_name=None):
-
   results = []
   for n in range(N):
     place, seed = RunOneCombat(map_name)
@@ -87,7 +89,7 @@ print sys.argv
 if len(sys.argv) >= 2:
   PORT = int(sys.argv[1])
 
-if len(sys.argv) == 2:
-  RunManyCombats(20, None)
-else:
+if len(sys.argv) <= 2:
+  RunManyCombats(5, None)
+elif len(sys.argv) > 2:
   RunManyCombats(20, sys.argv[2])
