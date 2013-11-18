@@ -15,7 +15,7 @@ def RunManyCombats(base_port, N, map_name=None):
   for n in range(N):
     filepath = tempfile.mktemp(prefix='C:/Coding/CodeTroopers/tmp/')
     my_index = random.randint(0, 3)
-    place, seed = server_util.RunOneCombat(map_name, filepath, my_index, base_port, None, False)
+    place, seed = server_util.RunOneCombat(map_name, filepath, my_index, base_port, None, render=False, with_debug=False)
     results.append(CombatResult(place, n, seed))
   for r in sorted(results):
     print r
@@ -33,7 +33,7 @@ else:
   base_port = 31000
 
 if len(sys.argv) <= 2:
-  RunManyCombats(base_port, 5, None)
+  RunManyCombats(base_port, 5, 'default')
 elif len(sys.argv) > 2:
   # For validate_both
-  RunManyCombats(base_port, 20, sys.argv[2])
+  RunManyCombats(base_port, 1, sys.argv[2])

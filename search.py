@@ -47,7 +47,6 @@ class Searcher(object):
       if score > self.bestScore:
         self.bestScore, self.bestAction = score, self.fa
 
-
     restr = self._constraints[-1]
     reset_energizer = False
     if restr.can_energize:
@@ -95,6 +94,8 @@ class Searcher(object):
       self._Try(index, Walk(self.context, p1))
       if p1 in self.pos.allies_hp:
         self._Try(index, Medikit(self.context, p1))
+        if self.context.me.type == TrooperType.FIELD_MEDIC:
+          self._Try(index, Heal(self.context, p1))
 
     restr.can_heal = reset_heal
     restr.can_energize = reset_energizer

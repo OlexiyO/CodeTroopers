@@ -25,16 +25,15 @@ def EvaluatePosition(context, position):
   #position_bonus = _PredictionBonus(context, position)
   items_bonus = _HoldItemsBonus(context, position)
   svd_bonus = _TotalSVDBonus(context, position)
-  # TODO:
-  # * Bonus for being close to commander
-  # * Have default "2-point" bonus
-  return points_scored + hp_improvement + items_bonus + svd_bonus
+  commander_bonus = _PositionBonus(context, position)
+  return points_scored + hp_improvement + items_bonus + svd_bonus + commander_bonus
 
 
 def _HoldItemsBonus(context, position):
+  # TODO: Replace this one: try to simulate the game stupidly and see who wins.
   med_bonus = position.holding_medikit * params.HAS_MEDIKIT_BONUS
   gre_bonus = position.holding_grenade * params.HAS_GRENADE_BONUS
-  ene_bonus = position.holding_field_ration* params.HAS_ENERGIZER_BONUS
+  ene_bonus = position.holding_field_ration * params.EXTRA_ACTION_POINT_BONUS * context.game.field_ration_eat_cost
   if context.me.type == TrooperType.FIELD_MEDIC:
     med_bonus *= 1.5
     gre_bonus *= 1.5
@@ -139,4 +138,20 @@ def _TotalSVDBonus(context, position):
     defence_weakness -= 1
   min_distance = min(util.Dist(position.loc, exy) if position.enemies_hp[exy] > 0 else 1000 for exy in context.enemies)
   min_distance_bonus = -min_distance * params.SVD_DISTANCE_RATIO if min_distance < 100 else 0
+  # TODO: Remove distance bonus if within shooting range.
   return (attack_promise - defence_weakness) * params.SVD_BONUS_MULT + min_distance_bonus
+
+
+def _PositionBonus(context, position):
+  count = 0
+  ally_units = [(p, u) for p, u in context.allies.iteritems()]
+  for p1, u1 in ally_units:
+    if u1.type == TrooperType.COMMANDER:
+      if p1 == Point(context.me.x, context.me.y):
+        p1 = position.loc
+      for p2, u2 in ally_units:
+        if p2 == Point(context.me.x, context.me.y):
+          p2 = position.loc
+        if p2 != p1 and util.Dist(p1, p2) <= context.game.commander_aura_range:
+          count += 1
+  return count * params.EXTRA_ACTION_POINT_BONUS * context.game.commander_aura_bonus_action_points

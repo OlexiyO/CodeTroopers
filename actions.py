@@ -4,6 +4,7 @@ from context import Context
 from model.BonusType import BonusType
 from model.ActionType import ActionType
 from model.Direction import Direction
+from model.TrooperType import TrooperType
 import util
 
 
@@ -138,6 +139,43 @@ class Energizer(Action):
   def SetMove(self, move):
     move.action = ActionType.EAT_FIELD_RATION
     move.direction = Direction.CURRENT_POINT
+
+
+class Heal(Action):
+  def __init__(self, context, where):
+    super(Heal, self).__init__(context)
+    self.where = where
+    self.target = self.context.allies.get(self.where, context.me)
+
+  def _IsPossible(self, position):
+    assert self.context.me.type == TrooperType.FIELD_MEDIC
+    if position.loc != self.where:
+      assert util.NextCell(position.loc, self.where), '%s and %s' % (position.loc, self.where)
+      assert self.where in self.context.allies
+    assert self.where in position.allies_hp
+    return position.allies_hp[self.where] < self.target.maximal_hitpoints
+
+  def _ActionCost(self):
+    return self.context.game.field_medic_heal_cost
+
+  def _Apply(self, position):
+    ap = position.action_points
+    hp = dict(position.allies_hp.iteritems())
+    self._SubtractActionPoints(position)
+    heal_amount = (self.context.game.field_medic_heal_self_bonus_hitpoints
+                   if self.where == position.loc else
+                   self.context.game.field_medic_heal_bonus_hitpoints)
+    position.allies_hp[position.loc] = max(
+      self.target.maximal_hitpoints, position.allies_hp[position.loc] + heal_amount)
+    position.holding_medikit = False
+    return ap, hp
+
+  def _Undo(self, position, info):
+    position.action_points, position.allies_hp = info
+
+  def SetMove(self, move):
+    move.action = ActionType.HEAL
+    move.x, move.y = self.where.x, self.where.y
 
 
 class Medikit(Action):

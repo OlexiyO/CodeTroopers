@@ -1,6 +1,8 @@
 from subprocess import call
 import threading
 import time
+from utilities import BaseRunner
+from utilities.RemoteProcessClient import RemoteProcessClient
 
 def RunServer(map_name, my_player_index, output_file, render, base_port, ID):
   base_cmd = 'start java -cp .;local-runner.jar Run %(flags)s "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer"'
@@ -31,13 +33,19 @@ def RunOldPlayer(base_port, index, ID):
   call(['python', STRATEGY, 'localhost', str(base_port + index), ID], shell=True, cwd=D)
 
 
-def RunLatestPlayer(base_port, index, ID):
-  D = 'C:/Coding/CodeTroopers/src/'
-  STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
-  call(['python', STRATEGY, 'localhost', str(base_port + index), ID], shell=True, cwd=D)
+def RunLatestPlayer(base_port, index, ID, with_debug):
+  if with_debug:
+    runner = BaseRunner.Runner()
+    runner.remote_process_client = RemoteProcessClient('localhost', base_port + index)
+    runner.token = ID
+    runner.run()
+  else:
+    D = 'C:/Coding/CodeTroopers/src/'
+    STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
+    call(['python', STRATEGY, 'localhost', str(base_port + index), ID], shell=True, cwd=D)
 
 
-def RunOneCombat(map, filepath, my_player_index, base_port, ID, render):
+def RunOneCombat(map, filepath, my_player_index, base_port, ID, render, with_debug):
   ID = ID or '0000000000000000'
   print ID
   tserver = threading.Thread(target=RunServer, args=(map, my_player_index, filepath, render, base_port, ID))
@@ -45,8 +53,12 @@ def RunOneCombat(map, filepath, my_player_index, base_port, ID, render):
   time.sleep(1.)
   threads = [tserver]
   for n in range(4):
-    tgt = RunLatestPlayer if n == my_player_index else RunOldPlayer
-    tp = threading.Thread(target=tgt, args=(base_port, n, ID))
+    if n == my_player_index:
+      tgt = RunLatestPlayer
+      tp = threading.Thread(target=tgt, args=(base_port, n, ID, with_debug))
+    else:
+      tgt = RunOldPlayer
+      tp = threading.Thread(target=tgt, args=(base_port, n, ID))
     tp.start()
     threads.append(tp)
     time.sleep(.2)
