@@ -1,6 +1,7 @@
 import math
 import actions
 from constants import Point
+from model.TrooperType import TrooperType
 import params
 import util
 
@@ -21,17 +22,28 @@ def EvaluatePosition(context, position):
 
   points_scored = _PointsScored(context, position)
   hp_improvement = _HealEffect(context, position)
-  svd_bonus = _PersonalSVDBonus(context, position)
+  #position_bonus = _PredictionBonus(context, position)
   items_bonus = _HoldItemsBonus(context, position)
-  return points_scored + hp_improvement + svd_bonus + items_bonus
+  svd_bonus = _TotalSVDBonus(context, position)
+  # TODO:
+  # * Bonus for being close to commander
+  # * Have default "2-point" bonus
+  return points_scored + hp_improvement + items_bonus + svd_bonus
 
 
 def _HoldItemsBonus(context, position):
-  return (position.holding_medikit * params.HAS_MEDIKIT_BONUS +
-          position.holding_grenade * params.HAS_GRENADE_BONUS +
-          position.holding_field_ration* params.HAS_ENERGIZER_BONUS)
-
-
+  med_bonus = position.holding_medikit * params.HAS_MEDIKIT_BONUS
+  gre_bonus = position.holding_grenade * params.HAS_GRENADE_BONUS
+  ene_bonus = position.holding_field_ration* params.HAS_ENERGIZER_BONUS
+  if context.me.type == TrooperType.FIELD_MEDIC:
+    med_bonus *= 1.5
+    gre_bonus *= 1.5
+  elif context.me.type == TrooperType.SOLDIER:
+    ene_bonus *= 1.5
+  elif context.me.type == TrooperType.COMMANDER:
+    gre_bonus *= 1.5
+  # TODO: more types
+  return med_bonus + gre_bonus + ene_bonus
 
 @util.TimeMe
 def _LowHPBonus(context, hp_left):
@@ -89,9 +101,6 @@ def _PersonalSVDBonus(context, position):
       they_see_me += util.IsVisible(
         context.world, enemy.vision_range, exy.x, exy.y, enemy.stance, position.loc.x, position.loc.y, position.stance)
 
-  if they_see_me:
-    return -params.SVD_BONUS_MULT
-
   i_see_them = 0
   for exy, enemy in context.enemies.iteritems():
     if position.enemies_hp[exy] > 0:
@@ -100,7 +109,7 @@ def _PersonalSVDBonus(context, position):
 
   min_distance = min(util.Dist(position.loc, exy) if position.enemies_hp[exy] > 0 else 1000 for exy in context.enemies)
   min_distance_bonus = -min_distance * params.SVD_DISTANCE_RATIO if min_distance < 100 else 0
-  return i_see_them + min_distance_bonus
+  return params.SVD_BONUS_MULT * (i_see_them - they_see_me) + min_distance_bonus
 
 
 @util.TimeMe
@@ -114,7 +123,7 @@ def _TotalSVDBonus(context, position):
   for axy, ally in ally_units.iteritems():
     if position.allies_hp[axy] == 0:
       continue
-    stance = ally.stance if axy in context.allies else position.stance
+    stance = position.stance if axy == position.loc else ally.stance
     for exy, enemy in context.enemies.iteritems():
       if position.enemies_hp[exy] > 0:
         they_see_us[axy] = util.IsVisible(
@@ -130,4 +139,4 @@ def _TotalSVDBonus(context, position):
     defence_weakness -= 1
   min_distance = min(util.Dist(position.loc, exy) if position.enemies_hp[exy] > 0 else 1000 for exy in context.enemies)
   min_distance_bonus = -min_distance * params.SVD_DISTANCE_RATIO if min_distance < 100 else 0
-  return attack_promise - defence_weakness + min_distance_bonus
+  return (attack_promise - defence_weakness) * params.SVD_BONUS_MULT + min_distance_bonus

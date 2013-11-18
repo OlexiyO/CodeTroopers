@@ -43,6 +43,16 @@ class Position(object):
     self.holding_medikit = me.holding_medikit
     self.holding_field_ration = me.holding_field_ration
 
+  def HasBonus(self, btype):
+    if btype == BonusType.GRENADE:
+      return self.holding_grenade
+    elif btype == BonusType.MEDIKIT:
+      return self.holding_medikit
+    elif btype == BonusType.FIELD_RATION:
+      return self.holding_field_ration
+    else:
+      assert False, 'Unknown bonus type %d' % btype
+
 
 class Action(object):
 
@@ -130,10 +140,19 @@ class Energizer(Action):
     move.direction = Direction.CURRENT_POINT
 
 
-class MedikitYourself(Action):
+class Medikit(Action):
+
+  def __init__(self, context, where):
+    super(Medikit, self).__init__(context)
+    self.where = where
+    self.target = self.context.allies.get(self.where, context.me)
 
   def _IsPossible(self, position):
-    return position.holding_medikit and position.allies_hp[position.loc] < 100
+    if position.loc != self.where:
+      assert util.NextCell(position.loc, self.where), '%s and %s' % (position.loc, self.where)
+      assert self.where in self.context.allies
+    assert self.where in position.allies_hp
+    return position.holding_medikit and position.allies_hp[self.where] < self.target.maximal_hitpoints
 
   def _ActionCost(self):
     return self.context.game.medikit_use_cost
@@ -143,9 +162,11 @@ class MedikitYourself(Action):
     hp = dict(position.allies_hp.iteritems())
     bonuses = dict(position.bonuses_present.iteritems())
     self._SubtractActionPoints(position)
+    heal_amount = (self.context.game.medikit_heal_self_bonus_hitpoints
+                   if self.where == position.loc else
+                   self.context.game.medikit_bonus_hitpoints)
     position.allies_hp[position.loc] = max(
-      100,
-      position.allies_hp[position.loc] + self.context.game.medikit_heal_self_bonus_hitpoints)
+      self.target.maximal_hitpoints, position.allies_hp[position.loc] + heal_amount)
     position.holding_medikit = False
     MaybePickupBonus(position, context)
     return ap, hp, bonuses
@@ -156,7 +177,7 @@ class MedikitYourself(Action):
 
   def SetMove(self, move):
     move.action = ActionType.USE_MEDIKIT
-    move.direction = Direction.CURRENT_POINT
+    move.x, move.y = self.where.x, self.where.y
 
 
 class Walk(Action):

@@ -67,7 +67,7 @@ class Searcher(object):
     if restr.can_heal:
       reset_heal = True
       restr.can_heal = False
-      self._Try(index, MedikitYourself(self.context))
+      self._Try(index, Medikit(self.context, self.pos.loc))
     for xy in self.context.enemies:
       self._Try(index, Shoot(self.context, xy))
 
@@ -91,7 +91,10 @@ class Searcher(object):
             restr.grenade_at.add(p1)
 
     for d in ALL_DIRS:
-      self._Try(index, Walk(self.context, PointAndDir(self.pos.loc, d)))
+      p1 = PointAndDir(self.pos.loc, d)
+      self._Try(index, Walk(self.context, p1))
+      if p1 in self.pos.allies_hp:
+        self._Try(index, Medikit(self.context, p1))
 
     restr.can_heal = reset_heal
     restr.can_energize = reset_energizer

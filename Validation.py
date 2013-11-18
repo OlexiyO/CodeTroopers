@@ -22,7 +22,7 @@ def RunManyCombats(base_port, N, map_name=None):
 
   for n in range(1, 5):
     print '%d place: %d times' % (n, len([res for res in results if res.place == n]))
-  print 'Average result:', sum(res.place for res in results) / float(N)
+  print 'Average result for map ', map_name, ':', sum(res.place for res in results) / float(N)
 
 
 import sys
@@ -35,4 +35,5 @@ else:
 if len(sys.argv) <= 2:
   RunManyCombats(base_port, 5, None)
 elif len(sys.argv) > 2:
+  # For validate_both
   RunManyCombats(base_port, 20, sys.argv[2])

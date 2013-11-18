@@ -1,7 +1,8 @@
 import cPickle as pickle
 import os
+from random import getrandbits
 import time
-from actions import Position, MedikitYourself
+from actions import Position, Medikit
 
 from context import Context
 import global_vars
@@ -9,8 +10,9 @@ from model.CellType import CellType
 from model.ActionType import ActionType
 from constants import *
 from search import Searcher
+import util
 
-GOAL = None
+GOALS = []
 INITIALIZED = False
 TOTAL_UNITS = None
 UNITS_ORDER = []
@@ -21,6 +23,13 @@ PREV_ACTION = None
 
 LOG_DIR = None
 STDOUT_LOGGING = True
+
+Goal = namedtuple('Goal', ['loc', 'type'])
+
+class GoalType:
+  ENEMY = 0
+  BONUS = 1
+  SCOUT = 2
 
 
 def UnitsMoveInOrder(u1, u2, u3):
@@ -73,8 +82,8 @@ class MyStrategy(object):
   def Init(self, context):
     global INITIALIZED
     INITIALIZED = True
-    global GOAL
-    GOAL = FindCornerToRun(context.me)
+    global GOALS
+    GOALS.append(Goal(FindCornerToRun(context.me), GoalType.SCOUT))
     global TOTAL_UNITS
     TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
     if STDOUT_LOGGING:
@@ -125,8 +134,6 @@ class MyStrategy(object):
     context.enemies = res
     ENEMIES = res
 
-  # TODO: Refactor move into Before --> Decide --> After
-
   def MaybeSaveLog(self, context):
     if LOG_DIR is None:
       return
@@ -142,6 +149,7 @@ class MyStrategy(object):
     context.world.cell_visibilities = cv
 
   def move(self, me, world, game, move):
+    print GOALS
     context = Context(me, world, game)
     self.MaybeSaveLog(context)
     global INITIALIZED
@@ -168,19 +176,21 @@ class MyStrategy(object):
       move.action = ActionType.END_TURN
       return
 
-    global GOAL
+    global GOALS
     if context.enemies:
       (ex, ey), enemy = min(context.enemies.iteritems(), key=lambda x: x[1].hitpoints)
-      GOAL = Point(x=ex, y=ey)
-    elif GOAL is None:
-      x_stays = 1  # getrandbits(1)
+      GOALS = [g for g in GOALS if g.type != GoalType.ENEMY]
+      GOALS.append(Goal(Point(x=ex, y=ey), GoalType.ENEMY))
+    elif not GOALS:
+      x_stays = getrandbits(1)
       x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
       y = 0 if ((me.y < Y/2) ^ x_stays) else Y - 1
       if STDOUT_LOGGING:
         print 'GGGG', x_stays, me.x, me.y, x, y
-      GOAL = Point(x, y)
-      if GOAL in context.allies or context.world.cells != CellType.FREE:
-        GOAL = ClosestEmptyCell(context, GOAL)
+      g = Point(x, y)
+      if g in context.allies or context.world.cells != CellType.FREE:
+        g = ClosestEmptyCell(context, g)
+      GOALS.append(Goal(g, GoalType.SCOUT))
 
     if context.enemies:
       searcher = Searcher()
@@ -188,19 +198,32 @@ class MyStrategy(object):
       action.SetMove(move)
     else:
       position = Position(context)
-      action = MedikitYourself(context)
+      action = Medikit(context, position.loc)
       # Also, start running this strategy vs my old one -- see how big improvements am I getting.
       if action.Allowed(position) and me.hitpoints < me.maximal_hitpoints - context.game.medikit_heal_self_bonus_hitpoints / 2:
         action.SetMove(move)
         return
-      if self.GoTo(GOAL, context, move):
+
+      closest = None
+      best_d = 1000
+      for xy, bonus in context.bonuses.iteritems():
+        if not position.HasBonus(bonus.type):
+          d = util.Dist(xy, position.loc)
+          if d < best_d:
+            best_d, closest = d, xy
+      if closest is not None:
+        if not GOALS or GOALS[-1].type != GoalType.BONUS:
+          GOALS.append(Goal(closest, GoalType.BONUS))
+      if self.GoTo(GOALS[-1].loc, context, move):
         pass
       else:
         move.action = ActionType.END_TURN
-      dist = global_vars.distances[GOAL.x][GOAL.y]
-      md = max(dist[p.x][p.y] for p in context.allies)
-      if md < 4:
-        GOAL = None
+      if GOALS[-1].type == GoalType.SCOUT:
+        md = max(util.Dist(p, GOALS[-1].loc) for p in context.allies)
+        if md < 4:
+          del GOALS[-1]
+      elif any(util.Dist(p, GOALS[-1].loc) == 0 for p in context.allies):
+        del GOALS[-1]
 
   def RunAway(self, where, context, move):
     data = global_vars.distances[where.x][where.y]
