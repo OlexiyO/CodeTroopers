@@ -1,6 +1,6 @@
 import cPickle as pickle
 import os
-from random import getrandbits
+from random import getrandbits, randint
 import time
 from actions import Position, Medikit, Heal
 
@@ -15,9 +15,6 @@ from search import Searcher
 import util
 
 GOALS = []
-INITIALIZED = False
-TOTAL_UNITS = None
-UNITS_ORDER = []
 ENEMIES = {}
 PREV_MOVE_INDEX = None
 PREV_MOVE_TYPE = None
@@ -39,10 +36,10 @@ def UnitsMoveInOrder(u1, u2, u3):
   assert u1 != u2, '%s != %s' % (u1, u2)
   assert u2 != u3, '%s != %s' % (u2, u3)
   assert u1 != u3, '%s != %s' % (u1, u3)
-  assert len(UNITS_ORDER) == TOTAL_UNITS
-  n1 = UNITS_ORDER.index(u1)
-  n2 = UNITS_ORDER.index(u2)
-  n3 = UNITS_ORDER.index(u3)
+  assert len(global_vars.UNITS_ORDER) == global_vars.TOTAL_UNITS
+  n1 = global_vars.UNITS_ORDER.index(u1)
+  n2 = global_vars.UNITS_ORDER.index(u2)
+  n3 = global_vars.UNITS_ORDER.index(u3)
   if n1 < n3:
     return n1 < n2 < n3
   else:
@@ -83,12 +80,12 @@ class MyStrategy(object):
           global_vars.distances[x_][y_] = data
 
   def Init(self, context):
-    global INITIALIZED
-    INITIALIZED = True
+    if global_vars.FIRST_MOVES_RANDOM > 0:
+      print 'First %d moves at random!' % global_vars.FIRST_MOVES_RANDOM
+
     global GOALS
     GOALS.append(Goal(FindCornerToRun(context.me), GoalType.SCOUT))
-    global TOTAL_UNITS
-    TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
+    global_vars.TOTAL_UNITS = len([t for t in context.world.troopers if t.teammate])
     if STDOUT_LOGGING:
       print 'Start from', context.me.x, context.me.y
 
@@ -97,16 +94,15 @@ class MyStrategy(object):
     dt = time.time() - t
     if STDOUT_LOGGING:
       print '%.2f' % dt
+    global_vars.INITIALIZED = True
     
   def _PreMove(self, context):
-    global TOTAL_UNITS
-    global UNITS_ORDER
     global ENEMIES
     global PREV_MOVE_INDEX
     global PREV_MOVE_TYPE
-    if context.me.type not in UNITS_ORDER:
+    if context.me.type not in global_vars.UNITS_ORDER:
       assert context.world.move_index == 0, context.world.move_index
-      UNITS_ORDER.append(context.me.type)
+      global_vars.UNITS_ORDER.append(context.me.type)
     
     # Update enemies.
     same_move = (context.world.move_index == PREV_MOVE_INDEX and
@@ -127,7 +123,7 @@ class MyStrategy(object):
                   if (enemy.type != context.me.type and
                       enemy.type != PREV_MOVE_TYPE and
                       # len(UNITS_ORDER) < TOTAL_UNITS means this is very first move.
-                      (len(UNITS_ORDER) < TOTAL_UNITS or not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type)))])
+                      (len(global_vars.UNITS_ORDER) < global_vars.TOTAL_UNITS or not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type)))])
     else:
       res = {}
 
@@ -156,15 +152,14 @@ class MyStrategy(object):
     print GOALS
     context = Context(me, world, game)
     self.MaybeSaveLog(context)
-    global INITIALIZED
-    if not INITIALIZED:
+    if not global_vars.INITIALIZED:
       self.Init(context)
     same_move = self._PreMove(context)
     self.RealMove(context, move)
     if move.action == ActionType.END_TURN and not same_move:
       for d in ALL_DIRS:
         p1 = PointAndDir(context.me_pos, d)
-        if context.CanMoveTo(p1.x, p1.y):
+        if context.CanMoveTo(p1):
           move.action = ActionType.MOVE
           move.x, move.y = p1.x, p1.y
           break
@@ -209,6 +204,15 @@ class MyStrategy(object):
     if me.action_points < 2:
       move.action = ActionType.END_TURN
       return
+
+    if global_vars.FIRST_MOVES_RANDOM > context.world.move_index:
+      for d in range(20):
+        d1 = ALL_DIRS[d % 4]
+        p1 = PointAndDir(context.me_pos, d1)
+        if context.CanMoveTo(p1) and randint(0, 4) == 0:
+          move.action = ActionType.MOVE
+          move.x, move.y = p1.x, p1.y
+          return
 
     if context.enemies:
       self.CombatMove(context, move)
@@ -265,11 +269,11 @@ class MyStrategy(object):
     data = global_vars.distances[where.x][where.y]
     me = context.me
     current_dist = data[me.x][me.y]
-    for dir in ALL_DIRS:
-      x1, y1 = me.x + dir.x, me.y + dir.y
-      if context.CanMoveTo(x1, y1) and data[x1][y1] > current_dist:
+    for d1 in ALL_DIRS:
+      p1 = PointAndDir(context.me_pos, d1)
+      if context.CanMoveTo(p1) and data[p1.x][p1.y] > current_dist:
         move.action = ActionType.MOVE
-        move.x, move.y = x1, y1
+        move.x, move.y = p1.x, p1.y
         return True
     return False
 
@@ -288,7 +292,7 @@ class MyStrategy(object):
         found = False
         for d in ALL_DIRS:
           p1 = PointAndDir(p, d)
-          if context.CanMoveTo(p1.x, p1.y) and context.steps[p1.x][p1.y] == last - 1:
+          if context.CanMoveTo(p1) and context.steps[p1.x][p1.y] == last - 1:
             found = True
             last -= 1
             p = p1
@@ -300,7 +304,7 @@ class MyStrategy(object):
       now = dmap[context.me.x][context.me.y]
       for d in ALL_DIRS:
         p1 = PointAndDir(context.me_pos, d)
-        if context.CanMoveTo(p1.x, p1.y) and dmap[p1.x][p1.y] == now - 1:
+        if context.CanMoveTo(p1) and dmap[p1.x][p1.y] == now - 1:
           xy = p1
           break
 
@@ -365,8 +369,9 @@ def ClosestEmptyCell(context, to):
       for dy in range(dist + 1 - dx):
         for x in (-dx, dx):
           for y in (-dy, dy):
-            if context.CanMoveTo(to.x + x, to.y + y):
-              return Point(to.x + x, to.y + y)
+            p1 = Point(to.x + x, to.y + y)
+            if context.CanMoveTo(p1):
+              return p1
   return None
 
 

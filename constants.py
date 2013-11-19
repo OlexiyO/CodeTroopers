@@ -8,5 +8,6 @@ ALL_DIRS = [NORTH, EAST, SOUTH, WEST]
 Y = 20
 X = 30
 
+
 def PointAndDir(p, d):
   return Point(p.x + d.x, p.y + d.y)

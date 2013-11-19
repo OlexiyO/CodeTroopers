@@ -22,8 +22,7 @@ class Context(object):
   def IsPassable(self, p):
     return self.IsInside(p) and self.world.cells[p.x][p.y] == CellType.FREE
 
-  def CanMoveTo(self, x, y):
-    p = Point(x, y)
+  def CanMoveTo(self, p):
     return self.IsPassable(p) and p not in self.units
 
   def GetEnemyAt(self, point):
@@ -52,7 +51,7 @@ class Context(object):
         break
       for d in ALL_DIRS:
         p1 = PointAndDir(p, d)
-        if self.CanMoveTo(p1.x, p1.y) and self.steps[p1.x][p1.y] > t:
+        if self.CanMoveTo(p1) and self.steps[p1.x][p1.y] > t:
           self.steps[p1.x][p1.y] = t
           q[lastp] = p1
           lastp += 1

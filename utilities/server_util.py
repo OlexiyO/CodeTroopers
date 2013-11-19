@@ -1,6 +1,7 @@
 from subprocess import call
 import threading
 import time
+import global_vars
 from utilities import BaseRunner
 from utilities.RemoteProcessClient import RemoteProcessClient
 
@@ -27,38 +28,39 @@ def RunServer(map_name, my_player_index, output_file, render, base_port, ID):
   call(full_cmd, shell=True, cwd='C:/Coding/CodeTroopers/Combat')
 
 
-def RunOldPlayer(base_port, index, ID):
+def RunOldPlayer(base_port, index, ID, first_moves_random):
   D = 'C:/Coding/CodeTroopers/v7/'
   STRATEGY = 'C:/Coding/CodeTroopers/v7/RunPlayer.py'
-  call(['python', STRATEGY, 'localhost', str(base_port + index), ID], shell=True, cwd=D)
+  call(['python', STRATEGY, 'localhost', str(base_port + index), ID, first_moves_random], shell=True, cwd=D)
 
 
-def RunLatestPlayer(base_port, index, ID, with_debug):
+def RunLatestPlayer(base_port, index, ID, with_debug, first_moves_random):
   if with_debug:
     runner = BaseRunner.Runner()
     runner.remote_process_client = RemoteProcessClient('localhost', base_port + index)
     runner.token = ID
+    global_vars.FIRST_MOVES_RANDOM = int(first_moves_random or '0')
     runner.run()
   else:
     D = 'C:/Coding/CodeTroopers/src/'
     STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
-    call(['python', STRATEGY, 'localhost', str(base_port + index), ID], shell=True, cwd=D)
+    call(['python', STRATEGY, 'localhost', str(base_port + index), ID, first_moves_random], shell=True, cwd=D)
 
 
-def RunOneCombat(map, filepath, my_player_index, base_port, ID, render, with_debug):
+def RunOneCombat(map_name, filepath, my_player_index, base_port, ID, render, with_debug, first_moves_random):
   ID = ID or '0000000000000000'
   print ID
-  tserver = threading.Thread(target=RunServer, args=(map, my_player_index, filepath, render, base_port, ID))
+  tserver = threading.Thread(target=RunServer, args=(map_name, my_player_index, filepath, render, base_port, ID))
   tserver.start()
   time.sleep(1.)
   threads = [tserver]
   for n in range(4):
     if n == my_player_index:
       tgt = RunLatestPlayer
-      tp = threading.Thread(target=tgt, args=(base_port, n, ID, with_debug))
+      tp = threading.Thread(target=tgt, args=(base_port, n, ID, with_debug, first_moves_random))
     else:
       tgt = RunOldPlayer
-      tp = threading.Thread(target=tgt, args=(base_port, n, ID))
+      tp = threading.Thread(target=tgt, args=(base_port, n, ID, first_moves_random))
     tp.start()
     threads.append(tp)
     time.sleep(.2)
