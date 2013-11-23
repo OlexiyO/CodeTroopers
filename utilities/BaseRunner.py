@@ -6,13 +6,13 @@ from utilities.RemoteProcessClient import RemoteProcessClient
 
 
 class Runner:
-    def __init__(self):
+    def __init__(self, port=None):
         if len(sys.argv) >= 4:
             self.remote_process_client = RemoteProcessClient(sys.argv[1], int(sys.argv[2]))
             self.token = sys.argv[3]
             global_vars.FIRST_MOVES_RANDOM = int(sys.argv[4]) if len(sys.argv) >= 5 else 0
         else:
-            self.remote_process_client = RemoteProcessClient("localhost", 31001)
+            self.remote_process_client = RemoteProcessClient("localhost", port or 31001)
             self.token = "0000000000000000"
 
     def run(self):

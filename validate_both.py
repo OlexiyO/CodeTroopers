@@ -15,7 +15,7 @@ def DoValidate(port, map_name, output_file):
        cwd='C:/Coding/CodeTroopers/src',
        stdout=fout)
 
-port = 31000
+port = 35000
 threads = []
 data = []
 for map_name in ['default', 'map1']:

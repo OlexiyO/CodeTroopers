@@ -2,13 +2,14 @@ import cPickle as pickle
 import os
 from random import getrandbits, randint
 import time
-from actions import Position, Medikit, Heal
+from actions import Position, Medikit, FieldMedicHeal
 
 from context import Context
 import global_vars
 from model.CellType import CellType
 from model.ActionType import ActionType
 from constants import *
+from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
 import params
 from search import Searcher
@@ -148,33 +149,76 @@ class MyStrategy(object):
       pickle.dump(context, fout)
     context.world.cell_visibilities = cv
 
-  def move(self, me, world, game, move):
-    print GOALS
-    context = Context(me, world, game)
-    self.MaybeSaveLog(context)
-    if not global_vars.INITIALIZED:
-      self.Init(context)
-    same_move = self._PreMove(context)
-    self.RealMove(context, move)
-    if move.action == ActionType.END_TURN and not same_move:
-      for d in ALL_DIRS:
+  def ReactAtPass(self, context, move, same_move):
+    me = context.me
+    if same_move:
+      if me.action_points >= me.shoot_cost:
+        # We already made some moves. If there is still energy -- lets randomly shoot in any direction.
+        def ShootInvisible(where):
+          if not context.IsPassable(where):
+            return False
+          if where in context.allies:
+            return False
+          if any(util.IsVisible(context.world, p.vision_range, p.x, p.y, p.stance, where.x, where.y, TrooperStance.PRONE)
+            for p in context.allies.itervalues()):
+            return False
+          return util.IsVisible(context.world, me.shooting_range, me.x, me.y, me.stance, where.x, where.y, TrooperStance.PRONE)
+
+        if GOALS:
+          g = GOALS[-1]
+          if ShootInvisible(g.loc):
+            move.action = ActionType.SHOOT
+            move.x, move.y = g.loc.x, g.loc.y
+          else:
+            found = False
+            for x in range(int(me.x - me.shooting_range), int(me.x + me.shooting_range + 1.01)):
+              if not found:
+                for y in range(int(me.y - me.shooting_range), int(me.y + me.shooting_range + 1.01)):
+                  if ShootInvisible(Point(x, y)):
+                    move.action = ActionType.SHOOT
+                    move.x, move.y = x, y
+                    found = True
+    else:
+      # We decided to stay put as the first action -- so lets randomly move somewhere.
+      for _ in range(10):
+        d = ALL_DIRS[randint(0, 3)]
         p1 = PointAndDir(context.me_pos, d)
         if context.CanMoveTo(p1):
           move.action = ActionType.MOVE
           move.x, move.y = p1.x, p1.y
           break
 
+  def move(self, me, world, game, move):
+    #print GOALS
+    context = Context(me, world, game)
+    self.MaybeSaveLog(context)
+    if not global_vars.INITIALIZED:
+      self.Init(context)
+    same_move = self._PreMove(context)
+    self.RealMove(context, move)
+    if move.action == ActionType.END_TURN:
+      self.ReactAtPass(context, move, same_move)
+
     if STDOUT_LOGGING:
-      if move.action == ActionType.END_TURN:
-        print 'Move %d, type %d at %02d:%02d' % (world.move_index, me.type, me.x, me.y), 'pass:', me.action_points
-      else:
-        print 'Move %d, type %d at %02d:%02d' % (world.move_index, me.type, me.x, me.y), 'Does:', move.action, move.x, move.y
+      unit_type = util.GetName(TrooperType, me.type)
+      my_stance = util.GetName(TrooperStance, me.stance)
+      action_name = util.GetName(ActionType, move.action)
+      move_desc = '(%2d, %2d)' % (move.x, move.y) if move.x != -1 else ''
+      print ('Move %d: %11s@(%2d, %2d) %s (%2d ap)'
+             % (world.move_index, unit_type, me.x, me.y, my_stance, me.action_points) + ':       %s -> %s' % (action_name, move_desc))
+      if move.action == ActionType.MOVE and me.action_points < util.MoveCost(me.stance, context.game):
+        # TODO: Remove this
+        print 'OLOOLOL'
+        with open('C:/Coding/CodeTroopers/bad_context.pickle', 'w') as fout:
+          pickle.dump(context, fout)
+        assert False
     global PREV_MOVE_TYPE
     global PREV_MOVE_INDEX
     global PREV_ACTION
     PREV_MOVE_TYPE = me.type
     PREV_MOVE_INDEX = world.move_index
     PREV_ACTION = move.action
+    global_vars.SAW_ENEMY_LAST_TURN = bool(context.enemies)
     global_vars.TURN_INDEX += 1
 
   def CombatMove(self, context, move):
@@ -217,9 +261,14 @@ class MyStrategy(object):
     if context.enemies:
       self.CombatMove(context, move)
     else:
-      self.ScoutingMove(context, move)
+      # Last turn this iteration.
+      if me.action_points <= 3:
+        self.Hide(context, move)
+      else:
+        self.ScoutingMove(context, move)
 
   def ScoutingMove(self, context, move):
+    # TODO: If last GOAL is enemy, be careful!
     me = context.me
     global GOALS
     position = Position(context)
@@ -244,9 +293,8 @@ class MyStrategy(object):
     if closest is not None:
       if not GOALS or GOALS[-1].type != GoalType.BONUS:
         GOALS.append(Goal(closest, GoalType.BONUS))
-      if self.GoTo(closest, context, move, keep_together=True):
+      if self.RunTo(closest, context, move, keep_together=True):
         return
-    # TODO: Walk towards Bonuses even around other guys.
     if not GOALS:
       x_stays = getrandbits(1)
       x = 0 if ((me.x < X/2) ^ (not x_stays)) else X - 1
@@ -262,7 +310,7 @@ class MyStrategy(object):
       bonus = context.bonuses.get(where, None)
       if bonus is not None and position.HasBonus(bonus.type) and context.steps[where.x][where.y] < 3:
         return
-    if GOALS[-1].loc == context.me_pos or not self.GoTo(GOALS[-1].loc, context, move):
+    if GOALS[-1].loc == context.me_pos or not self.RunTo(GOALS[-1].loc, context, move):
       move.action = ActionType.END_TURN
 
   def RunAway(self, where, context, move):
@@ -278,12 +326,16 @@ class MyStrategy(object):
     return False
 
   @util.TimeMe
-  def GoTo(self, where, context, move, keep_together=False):
-    """Tells unit 'me' to run to 'where'."""
+  def RunTo(self, where, context, move, keep_together=False):
+    """Tells unit to run to 'where'."""
     assert where != context.me_pos
     p = where
     last = context.steps[p.x][p.y]
     xy = None
+    if context.me.stance != TrooperStance.STANDING:
+      move.action = ActionType.RAISE_STANCE
+      return True
+
     if last < 100:
       while True:
         if last == 1:
@@ -337,7 +389,7 @@ class MyStrategy(object):
         act.SetMove(move)
         return True
       else:
-        self.GoTo(where, context, move)
+        self.RunTo(where, context, move)
         return True
     return False
 
@@ -345,15 +397,18 @@ class MyStrategy(object):
     most_missing, where = self._FindMostMissingHP(position, context)
     if most_missing > 0:
       if util.NextCell(where, position.loc) or where == position.loc:
-        act = Heal(context, where)
+        act = FieldMedicHeal(context, where)
         assert act.Allowed(position)
         act.SetMove(move)
         return True
       else:
-        self.GoTo(where, context, move)
+        self.RunTo(where, context, move)
         return True
     return False
 
+  def Hide(self, context, move):
+    # TODO: Find the most safe cell and step there.
+    move.action = ActionType.END_TURN
 
 def FindCornerToRun(trooper):
   """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""

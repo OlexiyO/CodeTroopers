@@ -1,5 +1,3 @@
-import math
-import actions
 from constants import Point
 from model.TrooperType import TrooperType
 import params
@@ -113,7 +111,7 @@ def _PersonalSVDBonus(context, position):
 
 @util.TimeMe
 def _TotalSVDBonus(context, position):
-  ally_units = {p: u for p, u in context.allies.iteritems()}
+  ally_units = dict(context.allies.iteritems())
   ally_units[position.loc] = ally_units.pop(Point(context.me.x, context.me.y))
   they_see_us = {}
   we_see_them = {}

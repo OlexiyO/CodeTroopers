@@ -1,4 +1,7 @@
 import math
+import os
+import datetime
+import MyStrategy
 from model.TrooperStance import TrooperStance
 import params
 
@@ -10,13 +13,13 @@ def CanSee(me, enemy, world):
   return world.is_visible(me.vision_range, me.x, me.y, me.stance, enemy.x, enemy.y, enemy.stance)
 
 
-def MoveCost(trooper, game):
-  if trooper.stance == TrooperStance.STANDING:
+def MoveCost(trooper_stance, game):
+  if trooper_stance == TrooperStance.STANDING:
     return game.standing_move_cost
-  elif trooper.stance == TrooperStance.KNEELING:
+  elif trooper_stance == TrooperStance.KNEELING:
     return game.kneeling_move_cost
   else:
-    assert trooper.stance == TrooperStance.PRONE
+    assert trooper_stance == TrooperStance.PRONE
     return game.prone_move_cost
 
 
@@ -76,3 +79,14 @@ def IsVisible(world, max_range, viewer_x, viewer_y, viewer_stance, object_x, obj
   return ord(world.cell_visibilities[cv]) == 1
 
 
+def GetName(enum_type, field_value):
+  for name in dir(enum_type):
+    if not name.startswith('_') and getattr(enum_type, name) == field_value:
+      return name
+  assert False
+
+
+def SaveDebugDataToDisk():
+  dt = datetime.datetime.now().strftime('%m%d_%H%M%S')
+  MyStrategy.LOG_DIR = os.path.join('C:/Coding/CodeTroopers/logs', dt)
+  os.makedirs(MyStrategy.LOG_DIR)

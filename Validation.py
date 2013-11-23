@@ -31,7 +31,7 @@ import sys
 print sys.argv
 if len(sys.argv) == 1:
   # Single validation.
-  RunManyCombats(31000, 5, map_name='default', first_moves_random='0')
+  RunManyCombats(33333, 3, map_name='default', first_moves_random='0')
 else:
   # For validate_both
   assert len(sys.argv) == 5

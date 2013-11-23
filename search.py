@@ -1,3 +1,5 @@
+import copy
+import types
 import actions
 from actions import *
 from evaluator import EvaluatePosition
@@ -24,20 +26,32 @@ class Searcher(object):
     self.fa = None
     self.total_count = 0
     self._constraints = [Constraints()]
+    self.prev = [None] * 25
     self._DFS(0)
+
     M.append((self.total_count, global_vars.TURN_INDEX))
     return self.bestAction
 
   def _Try(self, index, act):
     if not act.Allowed(self.pos):
       return False
+    #another_pos = copy.deepcopy(self.pos)
     info = act.Apply(self.pos)
     if index == 0:
       self.fa = act
+    self.prev[index + 1] = act
     self._DFS(index + 1)
     if index == 0:
       self.fa = None
     act.Undo(self.pos, info)
+    """
+    for x in dir(another_pos):
+      if not x.startswith('_'):
+        new_attr = getattr(self.pos, x)
+        if not isinstance(new_attr, types.MethodType):
+          old_attr = getattr(another_pos, x)
+          assert old_attr == new_attr, (type(act), x, old_attr, new_attr)
+    """
     return True
 
   def _DFS(self, index):
@@ -89,15 +103,26 @@ class Searcher(object):
             self._Try(index, act)
             restr.grenade_at.add(p1)
 
+    if not isinstance(self.prev[index], (Walk, LowerStance)):
+      self._Try(index, RaiseStance(self.context))
+    if not isinstance(self.prev[index], RaiseStance):
+      self._Try(index, LowerStance(self.context))
     for d in ALL_DIRS:
       p1 = PointAndDir(self.pos.loc, d)
-      self._Try(index, Walk(self.context, p1))
+      if not isinstance(self.prev[index], LowerStance):
+        self._Try(index, Walk(self.context, p1))
       if p1 in self.pos.allies_hp:
         self._Try(index, Medikit(self.context, p1))
         if self.context.me.type == TrooperType.FIELD_MEDIC:
-          self._Try(index, Heal(self.context, p1))
+          self._Try(index, FieldMedicHeal(self.context, p1))
 
     restr.can_heal = reset_heal
     restr.can_energize = reset_energizer
     if old_grenade is not None:
       restr.grenade_at = old_grenade
+
+
+def PrintDebugInfo():
+  print '\n'.join('%s: %.2f' % t for t in sorted(util.TOTAL_TIME.iteritems(), reverse=True, key=lambda x: x[1]))
+  print '\n'.join('Move %d: %d' % (t[1], t[0]) for t in sorted(M, reverse=True))
+  print 'Total:', sum(x[0] for x in M)

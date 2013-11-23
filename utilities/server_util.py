@@ -1,15 +1,19 @@
+import os
 from subprocess import call
 import threading
 import time
+import datetime
+import MyStrategy
 import global_vars
+import search
+import util
 from utilities import BaseRunner
-from utilities.RemoteProcessClient import RemoteProcessClient
 
 def RunServer(map_name, my_player_index, output_file, render, base_port, ID):
   base_cmd = 'start java -cp .;local-runner.jar Run %(flags)s "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer" "#LocalTestPlayer"'
   flags_dict = {
     'move-count': 50,
-    'debug': 'true', 'base-adapter-port': base_port,
+    'debug': 'true', 'base-adapter-port': base_port, 'local-test': 'true',
     'p1-name': 'v7_P1', 'p2-name': 'v7_p2', 'p3-name': 'v7_p3', 'p4-name': 'v7_p4',
     'p1-team-size': 3, 'p2-team-size': 3, 'p3-team-size': 3, 'p4-team-size': 3,
     'seed': ID,
@@ -28,23 +32,24 @@ def RunServer(map_name, my_player_index, output_file, render, base_port, ID):
   call(full_cmd, shell=True, cwd='C:/Coding/CodeTroopers/Combat')
 
 
-def RunOldPlayer(base_port, index, ID, first_moves_random):
-  D = 'C:/Coding/CodeTroopers/v7/'
-  STRATEGY = 'C:/Coding/CodeTroopers/v7/RunPlayer.py'
-  call(['python', STRATEGY, 'localhost', str(base_port + index), ID, first_moves_random], shell=True, cwd=D)
+def RunOldPlayer(port, ID, first_moves_random):
+  D = 'C:/Coding/CodeTroopers/v10/'
+  STRATEGY = os.path.join(D, 'RunPlayer.py')
+  call(['python', STRATEGY, 'localhost', str(port), ID, first_moves_random], shell=True, cwd=D)
 
 
-def RunLatestPlayer(base_port, index, ID, with_debug, first_moves_random):
+def RunLatestPlayer(port, ID, with_debug, first_moves_random):
   if with_debug:
-    runner = BaseRunner.Runner()
-    runner.remote_process_client = RemoteProcessClient('localhost', base_port + index)
+    runner = BaseRunner.Runner(port=port)
     runner.token = ID
     global_vars.FIRST_MOVES_RANDOM = int(first_moves_random or '0')
+    util.SaveDebugDataToDisk()
     runner.run()
+    search.PrintDebugInfo()
   else:
     D = 'C:/Coding/CodeTroopers/src/'
     STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
-    call(['python', STRATEGY, 'localhost', str(base_port + index), ID, first_moves_random], shell=True, cwd=D)
+    call(['python', STRATEGY, 'localhost', str(port), ID, first_moves_random], shell=True, cwd=D)
 
 
 def RunOneCombat(map_name, filepath, my_player_index, base_port, ID, render, with_debug, first_moves_random):
@@ -57,16 +62,18 @@ def RunOneCombat(map_name, filepath, my_player_index, base_port, ID, render, wit
   for n in range(4):
     if n == my_player_index:
       tgt = RunLatestPlayer
-      tp = threading.Thread(target=tgt, args=(base_port, n, ID, with_debug, first_moves_random))
+      tp = threading.Thread(target=tgt, args=(base_port + n, ID, with_debug, first_moves_random))
     else:
       tgt = RunOldPlayer
-      tp = threading.Thread(target=tgt, args=(base_port, n, ID, first_moves_random))
+      tp = threading.Thread(target=tgt, args=(base_port + n, ID, first_moves_random))
     tp.start()
     threads.append(tp)
-    time.sleep(.2)
+    time.sleep(.1)
+
   for t in threads:
     t.join()
 
+  time.sleep(.2)
   with open(filepath) as fin:
     lines = [line.strip() for line in fin]
   assert lines[0] == 'OK'
