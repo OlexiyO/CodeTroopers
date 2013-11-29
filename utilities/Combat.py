@@ -1,9 +1,8 @@
-import random
 from utilities import server_util
 from utilities.create_config import CreateConfigFile
 
 SHARED_ID = '0000000000000000'
-#SHARED_ID = '3479362486062050'
+SHARED_ID = '3513451172593653'
 
 output_filepath = 'C:/Coding/CodeTroopers/Combat/result.txt'
 base_port = 31111
@@ -13,7 +12,7 @@ config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='cheeser',
+                               map_name='map02',
                                my_player_index=my_player_index)
 import time
 time.sleep(.05)

@@ -21,6 +21,7 @@ class BattleSearcher(dfs.Searcher):
         reset_energizer = True
         restr.can_energize = False
 
+    # Why moving those lines at the bottom changes behavior?
     for xy in self.context.enemies:
       self._Try(Shoot(self.context, xy))
     old_grenade = None
@@ -58,8 +59,9 @@ class BattleSearcher(dfs.Searcher):
       if not isinstance(self.LastMove(), LowerStance):
         self._Try(Walk(self.context, p1))
 
-    for ally in self.context.allies.itervalues():
-      self._Try(Medikit(self.context, ally.type))
+    if not isinstance(self.LastMove(), (RaiseStance, LowerStance)):
+      for ally in self.context.allies.itervalues():
+        self._Try(Medikit(self.context, ally.type))
 
 
     restr.can_energize = reset_energizer

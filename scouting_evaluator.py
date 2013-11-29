@@ -1,5 +1,6 @@
 from constants import Point
 import global_vars
+import map_util
 from model.BonusType import BonusType
 from model.TrooperType import TrooperType
 import params
@@ -14,6 +15,16 @@ def EvaluatePosition(context, position):
     return benefit_score + action_points_score
   else:
     return safety_score + action_points_score
+
+
+def NeedBonus(context, position, bt):
+  if position.HasBonus(bt):
+    return False
+  if position.me.type == TrooperType.COMMANDER and bt == BonusType.FIELD_RATION:
+    return all(util.HasBonus(ally, bt) for ally in position.allies_by_type if ally is not None)
+  if position.me.type == TrooperType.SNIPER and bt == BonusType.GRENADE:
+    return all(util.HasBonus(ally, bt) for ally in position.allies_by_type if ally is not None)
+  return True
 
 
 def _BonusesScore(context, position):
@@ -34,7 +45,7 @@ def _BonusesScore(context, position):
         if b.type == bt:
           best_d = min(best_d, global_vars.distances[xy.x][xy.y][position.me.xy.x][position.me.xy.y])
     m = max(0, 1. - best_d * .1)
-    if position.HasBonus(bt):
+    if not NeedBonus(context, position, bt):
       if best_d == 0:
         m = 1.
       else:
@@ -108,6 +119,9 @@ def _GetCellDangerScore(context, position):
 
 def _SafetyScore(context, position):
   #sparsity_penalty = _DistFromHerdPenalty(context, position)
+  if context.world.move_index == 0 and map_util.SecureOnFirstTurn(context):
+    return 0
+
   cell_danger_score = _GetCellDangerScore(context, position)
   if cell_danger_score > 0:
     return -cell_danger_score * 100
@@ -116,24 +130,28 @@ def _SafetyScore(context, position):
 
 
 def _AttackingOrderPenalty(context, position):
+  discount = 1 if map_util.RelaxAttackingOrder(context) else 0
+
   goal = global_vars.NextCorner()
   safety_dist = global_vars.distances[goal.x][goal.y]
   #safety_dist = global_vars.distances[officer.x][officer.y]
   my_attacking_order = params.ATTACKING_ORDER.index(position.me.type)
-  old_danger = -safety_dist[position.me.xy.x][position.me.xy.y]
+  old_danger = -1000 #-safety_dist[position.me.xy.x][position.me.xy.y]
   new_danger = -safety_dist[position.me.xy.x][position.me.xy.y]
-  if old_danger >= new_danger:
-    return 0
-  score = 0
+  #if old_danger >= new_danger:
+  #  return 0
+  penalty = 0
   for xy, ally in context.allies.iteritems():
     if ally.type == position.me.type:
+      continue
+    if context.steps[ally.x][ally.y] > 10:
       continue
     his_attacking_order = params.ATTACKING_ORDER.index(ally.type)
     if his_attacking_order > my_attacking_order:
       continue
     his_danger = -safety_dist[xy.x][xy.y]
-    delta_danger = min((new_danger - his_danger), 3)
-    if old_danger < his_danger < new_danger:
-      score += (delta_danger ** 2) * ((my_attacking_order - his_attacking_order) ** 2) * params.WRONG_ATTACKING_ORDER_MULT
+    delta_danger = min((new_danger - his_danger - discount), 4)
+    if delta_danger > 0:
+      penalty += (delta_danger ** 2) * ((my_attacking_order - his_attacking_order) ** 2) * params.WRONG_ATTACKING_ORDER_MULT
 
-  return -score
+  return penalty

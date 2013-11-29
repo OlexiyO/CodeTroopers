@@ -3,7 +3,7 @@ from model.TrooperType import TrooperType
 
 KILL_EXTRA_PROFIT = 50
 HIDDEN_NEIGHBOR_RATIO = 0.01
-HEAL_DISCOUNT = .5  # Healing one point to yourself is that much worse than doing 1 point of damage.
+HEAL_DISCOUNT = .75  # Healing one point to yourself is that much worse than doing 1 point of damage.
 
 SELF_KILL_PENALTY = 50   # Healing discount is NOT applied.
 

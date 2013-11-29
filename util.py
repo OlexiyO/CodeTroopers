@@ -32,8 +32,8 @@ def ShootDamage(trooper):
     return trooper.prone_damage
 
 
-def Dist(pa, pb):
-  return math.hypot(pa.x - pb.x, pa.y - pb.y)
+def WithinRange(pa, pb, max_range):
+  return (pa.x - pb.x) ** 2 + (pa.y - pb.y) ** 2 <= max_range ** 2
 
 
 def NextCell(pa, pb):
@@ -48,9 +48,9 @@ TOTAL_TIME = {}
 import time
 
 def TimeMe(func):
-  if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
-    return func
-
+  #if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
+  return func
+  '''
   def Wrapped(*args, **kwargs):
     x = time.time()
     r = func(*args, **kwargs)
@@ -60,11 +60,12 @@ def TimeMe(func):
     TOTAL_TIME[key] = t0 + dt
     return r
   return Wrapped
+  '''
 
 
 @TimeMe
 def IsVisible(context, max_range, viewer_x, viewer_y, viewer_stance, object_x, object_y, object_stance):
-  if math.hypot(object_x - viewer_x, object_y - viewer_y) > max_range:
+  if (object_x - viewer_x) ** 2 + (object_y - viewer_y) ** 2 > max_range * max_range:
     return False
   min_stance_index = min(viewer_stance, object_stance)
   cv = min_stance_index + 3 * (object_y + context.world.height * (object_x + context.world.width * (viewer_y + context.world.height * viewer_x)))
@@ -174,7 +175,8 @@ def ShootingRange(context, trooper):
   range = trooper.shooting_range
   if trooper.type != TrooperType.SNIPER:
     return range
-  elif trooper.stance == TrooperStance.STANDING:
+  range = global_vars.SNIPER_SHOOTING_RANGE
+  if trooper.stance == TrooperStance.STANDING:
     return range + context.game.sniper_standing_shooting_range_bonus
   elif trooper.stance == TrooperStance.PRONE:
     return range + context.game.sniper_prone_shooting_range_bonus

@@ -1,6 +1,7 @@
 from actions import Position, FieldMedicHeal, Medikit
 from constants import *
 import global_vars
+import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
@@ -89,6 +90,13 @@ def TryHeal(context, move):
   return False
 
 
+def StanceForRunning(context, trooper):
+  #if context.MapIsOpen() and trooper.type == TrooperType.SNIPER:
+  #  return TrooperStance.KNEELING
+  #else:
+  return TrooperStance.STANDING
+
+
 @util.TimeMe
 def ScoutingMove(context, move):
   if context.me.xy == global_vars.NextCorner():
@@ -96,8 +104,10 @@ def ScoutingMove(context, move):
   if TryHeal(context, move):
     return
 
-  if context.me.stance != TrooperStance.STANDING:
+  if context.me.stance < StanceForRunning(context, context.me):
     move.action = ActionType.RAISE_STANCE
+  elif context.me.stance > StanceForRunning(context, context.me):
+    move.action = ActionType.LOWER_STANCE
   else:
     searcher = ScoutingSearcher()
     searcher.DoSearch(scouting_evaluator.EvaluatePosition, context, move)
@@ -114,13 +124,12 @@ def RunTo(where, context, move):
   assert where != context.me.xy
   me = context.me
   best_d = context.steps[where.x][where.y]
-  for d in ALL_DIRS:
-    wc = PointAndDir(where, d)
-    if context.CanMoveTo(wc) and context.steps[wc.x][wc.y] < best_d:
-      best_d, where =  context.steps[wc.x][wc.y], wc
 
-  if context.me.stance != TrooperStance.STANDING:
+  if context.me.stance < StanceForRunning(context, context.me):
     move.action = ActionType.RAISE_STANCE
+    return True
+  elif context.me.stance > StanceForRunning(context, context.me):
+    move.action = ActionType.LOWER_STANCE
     return True
 
   options = []

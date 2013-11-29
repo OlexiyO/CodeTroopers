@@ -9,6 +9,7 @@ import constants
 
 from context import Context
 import global_vars
+import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
@@ -38,13 +39,18 @@ def UnitsMoveInOrder(u1, u2, u3):
     return n2 > n1 or n2 < n3
 
 
-class Strategy(object):
+class MyStrategy(object):
 
   def Init(self, context):
+    print map_util.HashOfMap(context)
     if global_vars.FIRST_MOVES_RANDOM > 0:
       print 'First %d moves at random!' % global_vars.FIRST_MOVES_RANDOM
 
-    FillCornersOrder(context)
+    for ally in context.allies.itervalues():
+      if ally.type == TrooperType.SNIPER:
+        if ally.stance == TrooperStance.STANDING:
+          assert ally.shooting_range == global_vars.SNIPER_SHOOTING_RANGE, (ally.shooting_range, global_vars.SNIPER_SHOOTING_RANGE)
+    self.FillCornersOrder(context)
     global_vars.UNITS_IN_GAME = len([t for t in context.world.troopers if t.teammate])
     if global_vars.STDOUT_LOGGING:
       print 'Start from', context.me.x, context.me.y
@@ -151,7 +157,6 @@ class Strategy(object):
       pickle.dump(context, fout)
     context.world.cell_visibilities = cv
 
-
   def ReactAtPass(self, context, move):
     me = context.me
     if me.action_points >= me.shoot_cost:
@@ -239,20 +244,21 @@ class Strategy(object):
     else:
       scouting.ScoutingMove(context, move)
 
-def FillCornersOrder(context):
-  """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""
-  me = context.me
-  global_vars.ORDER_OF_CORNERS = []
-  x = 0 if me.x < X / 2 else X - 1
-  y = 0 if me.y < (Y / 2) else Y - 1
-  global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-  y = 0 if y > (Y / 2) else Y - 1  # Switch y
-  global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-  x = 0 if me.x > X / 2 else X - 1
-  global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-  y = 0 if y > (Y / 2) else Y - 1  # Switch y
-  global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-  global_vars.NEXT_CORNER = 1
+
+  def FillCornersOrder(self, context):
+    """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""
+    me = context.me
+    global_vars.ORDER_OF_CORNERS = []
+    x = 0 if me.x < X / 2 else X - 1
+    y = 0 if me.y < (Y / 2) else Y - 1
+    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    y = 0 if y > (Y / 2) else Y - 1  # Switch y
+    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    x = 0 if me.x > X / 2 else X - 1
+    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    y = 0 if y > (Y / 2) else Y - 1  # Switch y
+    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    global_vars.NEXT_CORNER = 1
 
 
 def ClosestEmptyCell(context, to):

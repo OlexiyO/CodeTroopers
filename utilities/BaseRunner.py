@@ -1,4 +1,4 @@
-from Strategy import Strategy
+from MyStrategy import MyStrategy
 from model.Move import Move
 from utilities.RemoteProcessClient import RemoteProcessClient
 
@@ -18,7 +18,7 @@ class Runner:
             strategies = []
 
             for strategy_index in xrange(team_size):
-                strategies.append(Strategy())
+                strategies.append(MyStrategy())
 
             while True:
                 player_context = self.remote_process_client.read_player_context()

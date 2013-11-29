@@ -1,7 +1,8 @@
 import os
 import cPickle as pickle
-from Strategy import Strategy
+from MyStrategy import MyStrategy
 import global_vars
+import map_util
 
 TEST_DIR = 'C:/Coding/CodeTroopers/src/tests/testdata'
 
@@ -12,7 +13,7 @@ def ContextFromFile(filename):
   with open(os.path.join(TEST_DIR, 'visibilities_%s' % map_name)) as fin:
     context.world.cell_visibilities = pickle.load(fin)
   context.world.stance_count = 3
-  s = Strategy()
+  s = MyStrategy()
   s.Init(context)
   global_vars.UNITS_IN_GAME = context.TOTAL_UNITS
   global_vars.UNITS_ORDER = context.UNITS_ORDER
@@ -20,6 +21,8 @@ def ContextFromFile(filename):
   global_vars.ORDER_OF_CORNERS = context.ORDER_OF_CORNERS
   context._FillVisibleCells()
   context._FillDistancesFromMe()
+  context.map_name = map_util.MapName(context)
+  s.FillCornersOrder(context)
 
   return s, context
 

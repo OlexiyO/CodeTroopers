@@ -30,15 +30,11 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.y, 6)
 
   def testShootOrLowerStance(self):
-    # If lower stance here -- then should lower stance second time!
-    """
+    # Lower stance -> shoot -> lower stance (hide)
     strat, context = ContextFromFile('022_1_2_map03')
     move = Move()
     strat.RealMove(context, move)
-    self.assertEqual(move.action, ActionType.SHOOT)
-    self.assertEqual(move.x, 24)
-    self.assertEqual(move.y, 13)
-    """
+    self.assertEqual(move.action, ActionType.LOWER_STANCE)
 
     strat, context = ContextFromFile('023_1_2_map03')
     move = Move()
@@ -46,8 +42,6 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.action, ActionType.SHOOT)
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 13)
-
-
 
   def testFighting(self):
     strat, context = ContextFromFile('040_2_2_map05')
@@ -103,3 +97,11 @@ class ScoutingTest(unittest.TestCase):
       self.assertEqual(Point(move.x, move.y), Point(21, 6))
     else:
       self.assertEqual(move.action, ActionType.USE_MEDIKIT)
+
+  def testTakeMedikit(self):
+    strat, context = ContextFromFile('049_2_3_map05')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.MOVE)
+    self.assertEqual(move.x, 23)
+    self.assertEqual(move.y, 1)

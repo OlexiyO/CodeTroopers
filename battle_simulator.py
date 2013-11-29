@@ -4,107 +4,139 @@ import params
 import util
 
 
+we_shoot_them = [list([False] * 20) for _ in range(5)]
+they_shoot_us = [list([False] * 5) for _ in range(20)]
+orig_enemies_hp = [0] * 20
+enemies_hp = [0] * 20
+orig_allies_hp = [0] * 5
+allies_hp = [0] * 5
+allies = [None] * 5
+enemies = [None] * 20
+
+
 class BattleSimulator(object):
 
+  @util.TimeMe
   def __init__(self, context, position):
     self.context = context
     self.position = position
-    self.enemies = []
-    self.enemies_hp = []
-    self.orig_enemies_hp = []
-    self.allies = []
-    self.allies_hp = []
-    self.orig_allies_hp = []
     self.score = 0
     self.ally_captain_ind = -1
     self.enemy_captain_ind = -1
+    self.ecount = 0
+    self.acount = 0
+    global orig_allies_hp
+    global allies_hp
+    global allies
+    global orig_enemies_hp
+    global enemies_hp
+    global enemies
     for xy, hp in sorted(position.enemies_hp.iteritems(), key=lambda x: x[1]):
       if hp > 0:
-        self.enemies.append(context.enemies[xy])
-        self.enemies_hp.append(hp)
-        self.orig_enemies_hp.append(hp)
+        enemies[self.ecount] = context.enemies[xy]
+        enemies_hp[self.ecount] = hp
+        orig_enemies_hp[self.ecount] = hp
         if context.enemies[xy].type == TrooperType.COMMANDER:
-          self.enemy_captain_ind = len(self.enemies) - 1
+          self.enemy_captain_ind = self.ecount
+        self.ecount += 1
 
     for t, hp in sorted(enumerate(position.allies_hp), key=lambda x: x[1]):
       if hp is not None and hp > 0:
         unit = position.GetUnit(t)
-        self.allies.append(unit)
-        self.allies_hp.append(hp)
-        self.orig_allies_hp.append(hp)
+        allies[self.acount] = unit
+        allies_hp[self.acount] = hp
+        orig_allies_hp[self.acount] = hp
         if unit.type == TrooperType.COMMANDER:
-          self.ally_captain_ind = len(self.allies) - 1
+          self.ally_captain_ind = self.acount
+        self.acount += 1
 
     #self.we_see_them = [list([False] * len(self.enemies)) for _ in self.allies]
-    self.we_shoot_them = [list([False] * len(self.enemies)) for _ in self.allies]
     #self.they_see_us = [list([False] * len(self.allies)) for _ in self.enemies]
-    self.they_shoot_us = [list([False] * len(self.allies)) for _ in self.enemies]
+    global we_shoot_them
+    global they_shoot_us
     if self.ally_captain_ind != -1:
-      capxy = self.allies[self.ally_captain_ind].xy
-      self.allies_under_captain = [util.Dist(ally.xy, capxy) <= context.game.commander_aura_range for ally in self.allies]
+      capxy = allies[self.ally_captain_ind].xy
+      self.allies_under_captain = [util.WithinRange(ally.xy, capxy, context.game.commander_aura_range)
+                                   for ally in allies[:self.acount]]
     else:
-      self.allies_under_captain = [False] * len(self.allies)
+      self.allies_under_captain = [False] * self.acount
     if self.enemy_captain_ind != -1:
-      capxy = self.enemies[self.enemy_captain_ind].xy
-      self.enemies_under_captain = [util.Dist(enemy.xy, capxy) <= context.game.commander_aura_range for enemy in self.enemies]
+      capxy = enemies[self.enemy_captain_ind].xy
+      self.enemies_under_captain = [util.WithinRange(enemy.xy, capxy, context.game.commander_aura_range)
+                                    for enemy in enemies[:self.ecount]]
     else:
-      self.enemies_under_captain = [False] * len(self.enemies)
+      self.enemies_under_captain = [False] * self.ecount
 
-    for i, a in enumerate(self.allies):
-      for j, e in enumerate(self.enemies):
+    for i, a in enumerate(allies[:self.acount]):
+      for j, e in enumerate(enemies[:self.ecount]):
         #self.we_see_them[i][j] = util.CanSee(context, a, e)
-        self.we_shoot_them[i][j] = util.CanShoot(context, a, e)
+        we_shoot_them[i][j] = util.CanShoot(context, a, e)
         #self.they_see_us[j][i] = util.CanSee(context, e, a)
-        self.they_shoot_us[j][i] = util.CanShoot(context, e, a)
+        they_shoot_us[j][i] = util.CanShoot(context, e, a)
 
+  @util.TimeMe
   def MyShot(self, t):
-    for i, a in enumerate(self.allies):
+    global we_shoot_them
+    global allies_hp
+    global allies
+    global enemies_hp
+    for i, a in enumerate(allies[:self.acount]):
       if a.type == t:
-        if self.allies_hp[i] <= 0:
+        if allies_hp[i] <= 0:
           return
         ap = a.initial_action_points
         if (0 < self.ally_captain_ind and
             self.ally_captain_ind != i and
             self.allies_under_captain[i] and
-            self.allies_hp[self.ally_captain_ind] > 0):
+            allies_hp[self.ally_captain_ind] > 0):
           ap += self.context.game.commander_aura_bonus_action_points
         num_shots = ap / a.shoot_cost
         dmg = util.ShootDamage(a)
-        for j, hp in enumerate(self.enemies_hp):
-          if hp > 0 and self.we_shoot_them[i][j]:
+        for j, hp in enumerate(enemies_hp[:self.ecount]):
+          if hp > 0 and we_shoot_them[i][j]:
             cnt = min((hp + dmg - 1) / dmg, num_shots)
             num_shots -= cnt
-            self.enemies_hp[j] = max(0, hp - dmg * cnt)
+            enemies_hp[j] = max(0, hp - dmg * cnt)
 
+  @util.TimeMe
   def EnemyShot(self, t):
-    for i, e in enumerate(self.enemies):
+    global they_shoot_us
+    global allies_hp
+    global enemies_hp
+    global enemies
+    for i, e in enumerate(enemies[:self.ecount]):
       if e.type == t:
-        if self.enemies_hp[i] <= 0:
+        if enemies_hp[i] <= 0:
           continue
 
         ap = e.initial_action_points
         if (0 < self.enemy_captain_ind and
             self.enemy_captain_ind != i and
-            self.enemies_hp[self.enemy_captain_ind] > 0 and
+            enemies_hp[self.enemy_captain_ind] > 0 and
             self.enemies_under_captain[i]):
           ap += self.context.game.commander_aura_bonus_action_points
         num_shots = ap / e.shoot_cost
         dmg = util.ShootDamage(e)
-        for j, hp in enumerate(self.allies_hp):
-          if hp > 0 and self.they_shoot_us[i][j]:
+        for j, hp in enumerate(allies_hp[:self.acount]):
+          if hp > 0 and they_shoot_us[i][j]:
             cnt = min((hp + dmg - 1) / dmg, num_shots)
             num_shots -= cnt
-            self.allies_hp[j] = max(0, hp - dmg * cnt)
+            allies_hp[j] = max(0, hp - dmg * cnt)
 
+  @util.TimeMe
   def Score(self):
+    global orig_enemies_hp
+    global enemies_hp
+    global orig_allies_hp
+    global allies_hp
     res = self.score
-    for i, hp in enumerate(self.allies_hp):
+    for i, hp in enumerate(allies_hp[:self.acount]):
       if hp == 0:
         res -= params.SELF_KILL_PENALTY
-      res += (hp - self.orig_allies_hp[i]) * params.HEAL_DISCOUNT
+      res += (hp - orig_allies_hp[i]) * params.HEAL_DISCOUNT
 
-    for i, hp in enumerate(self.enemies_hp):
-      res += self.orig_enemies_hp[i] - hp
+    for i, hp in enumerate(enemies_hp[:self.ecount]):
+      res += orig_enemies_hp[i] - hp
       if hp == 0:
         res += params.KILL_EXTRA_PROFIT
     return res

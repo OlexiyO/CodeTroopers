@@ -1,7 +1,7 @@
 from constants import *
 import global_vars
+import map_util
 from model.CellType import CellType
-from model.TrooperStance import TrooperStance
 import params
 import util
 
@@ -13,6 +13,7 @@ class Context(object):
     self.me = me
     self.me.xy = Point(me.x, me.y)
     self.world = world
+    self.map_name = map_util.MapName(self)
     self.game = game
     self.units = {Point(T.x, T.y) : T for T in world.troopers}
     for u in self.units.itervalues():
@@ -60,6 +61,9 @@ class Context(object):
   def _FillDistancesFromMe(self):
     self.steps = self.FindDistances(self.me.xy)
 
+  def MapIsOpen(self):
+    return map_util.MapIsOpen(self.map_name)
+
   @util.TimeMe
   def FindDistances(self, where):
     data = util.Array2D(1000)
@@ -76,10 +80,11 @@ class Context(object):
         break
       for d in ALL_DIRS:
         p1 = PointAndDir(p, d)
-        if self.CanMoveTo(p1) and data[p1.x][p1.y] > t:
+        if self.IsPassable(p1) and data[p1.x][p1.y] > t:
           data[p1.x][p1.y] = t
-          q[lastp] = p1
-          lastp += 1
+          if self.CanMoveTo(p1):
+            q[lastp] = p1
+            lastp += 1
     return data
 
   def DistFromHerd(self, who, where):
