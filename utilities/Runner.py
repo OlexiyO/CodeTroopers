@@ -1,16 +1,13 @@
-import os
 from subprocess import call
-import datetime
-import MyStrategy
-import search
+import dfs
 import util
 from utilities.BaseRunner import Runner
 
 
-util.SaveDebugDataToDisk()
+util.StartSavingDebugDataToDisk()
 
-P = 'C:/Coding/CodeTroopers/Runner/local-runner.bat'
+P = 'C:/Coding/CodeTroopers/Runner/local-runner-vs-smart-guys.bat'
 call([P], shell=True)
-Runner().run()
+Runner(31001, seed='0000000000000000').run()
 
-search.PrintDebugInfo()
+dfs.PrintDebugInfo()

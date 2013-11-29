@@ -24,6 +24,7 @@ class RemoteProcessClient:
 
     def __init__(self, host, port):
         self.socket = socket.socket()
+        self.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         self.socket.connect((host, port))
         self.cells = None
         self.cell_visibilities = None

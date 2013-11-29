@@ -1,9 +1,18 @@
-from constants import *
-distances = [list([None] * Y) for _ in xrange(X)]
+distances = []
+cell_vision = []
+cell_dominated_by = []
 
+AT_HOME = False
 INITIALIZED = False
+STDOUT_LOGGING = True
 TURN_INDEX = 0
 FIRST_MOVES_RANDOM = 0
-TOTAL_UNITS = []
+
+UNITS_IN_GAME = None
 UNITS_ORDER = []
-SAW_ENEMY_LAST_TURN = False
+ORDER_OF_CORNERS = None
+NEXT_CORNER = 1
+
+
+def NextCorner():
+  return ORDER_OF_CORNERS[NEXT_CORNER]

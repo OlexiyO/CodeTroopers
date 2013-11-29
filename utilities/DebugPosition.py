@@ -1,5 +1,5 @@
 import os
-from MyStrategy import MyStrategy
+from Strategy import Strategy
 from model.Move import Move
 
 D = 'C:/Coding/CodeTroopers/logs/1120_223254'
@@ -16,4 +16,4 @@ cv_path = os.path.join(D, 'visibilities')
 with open(cv_path) as fin:
   context.world.cell_visibilities = pickle.load(fin)
 
-MyStrategy().RealMove(context, Move())
+Strategy().RealMove(context, Move())

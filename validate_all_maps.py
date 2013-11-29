@@ -4,13 +4,13 @@ import tempfile
 from threading import Thread
 
 
-N = 20
-random_moves = 5
+NUM_GAMES = 15
+random_moves = 2
 
 def DoValidate(port, map_name, output_file):
   global random_moves
   with open(output_file, 'w') as fout:
-    call('python Validation.py %d %s %d %d' % (port, map_name, N, random_moves),
+    call('python Validation.py %d %s %d %d' % (port, map_name, NUM_GAMES, random_moves),
        shell=True,
        cwd='C:/Coding/CodeTroopers/src',
        stdout=fout)
@@ -18,7 +18,7 @@ def DoValidate(port, map_name, output_file):
 port = 35000
 threads = []
 data = []
-for map_name in ['default', 'map1']:
+for map_name in ['default', 'map01', 'cheeser', 'map02', 'map03', 'map04', 'map05']:
   filepath = tempfile.mktemp(prefix='C:/Coding/CodeTroopers/tmp/')
   print filepath
   t = Thread(target=DoValidate, kwargs={'port': port, 'map_name': map_name, 'output_file': filepath})
@@ -35,5 +35,7 @@ print 'Random moves:', random_moves
 for map_name, fname in data:
   print
   print 'Map:', map_name
-  d = deque(open(fname), 5 + N)
+  print 'Log:', fname
+  #d = deque(open(fname), 5 + N)
+  d = deque(open(fname), 6)
   print ''.join(d)

@@ -1,19 +1,12 @@
-import sys
-from MyStrategy import MyStrategy
-import global_vars
+from Strategy import Strategy
 from model.Move import Move
 from utilities.RemoteProcessClient import RemoteProcessClient
 
 
 class Runner:
-    def __init__(self, port=None):
-        if len(sys.argv) >= 4:
-            self.remote_process_client = RemoteProcessClient(sys.argv[1], int(sys.argv[2]))
-            self.token = sys.argv[3]
-            global_vars.FIRST_MOVES_RANDOM = int(sys.argv[4]) if len(sys.argv) >= 5 else 0
-        else:
-            self.remote_process_client = RemoteProcessClient("localhost", port or 31001)
-            self.token = "0000000000000000"
+    def __init__(self, port, seed):
+      self.remote_process_client = RemoteProcessClient('127.0.0.1', int(port))
+      self.token = '0000000000000000' #seed
 
     def run(self):
         try:
@@ -25,7 +18,7 @@ class Runner:
             strategies = []
 
             for strategy_index in xrange(team_size):
-                strategies.append(MyStrategy())
+                strategies.append(Strategy())
 
             while True:
                 player_context = self.remote_process_client.read_player_context()
