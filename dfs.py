@@ -4,12 +4,23 @@ import util
 
 M = []
 
+# Grenade > Shoot > Heal
+# Stance > Grenade > Heal
+
+NEXT_BANNED_MOVES = {
+  LowerStance: (RaiseStance, Walk, ThrowGrenade, FieldMedicHeal, UseMedikit),
+  RaiseStance: (LowerStance, ThrowGrenade, FieldMedicHeal, UseMedikit),
+  Walk: (RaiseStance,),
+  Shoot: (UseMedikit, FieldMedicHeal),
+  ThrowGrenade: (Shoot, UseMedikit, FieldMedicHeal),
+  }
+
 
 class Constraints(object):
   def __init__(self):
-    self.grenade_at = set()
     self.can_heal = [True] * TOTAL_UNIT_TYPES
     self.can_energize = True
+    self.visited = set()
 
 
 class Searcher(object):
@@ -39,6 +50,11 @@ class Searcher(object):
     return self.last_move[self.index]
 
   def _Try(self, act):
+    #return super(BattleSearcher, self)._Try(act)
+    banned_moves = NEXT_BANNED_MOVES.get(type(self.LastMove()), ())
+    if isinstance(act, banned_moves):
+      return False
+
     if not act.Allowed(self.pos):
       return False
     info = act.Apply(self.pos)
@@ -60,7 +76,8 @@ class Searcher(object):
       if score > self.bestScore:
         self.bestScore, self.bestAction = score, self.fa
 
-    self._TryMoves()
+    if self.pos.action_points > 0:
+      self._TryMoves()
 
   def _TryMoves(self):
     raise NotImplementedError
@@ -69,4 +86,5 @@ class Searcher(object):
 def PrintDebugInfo():
   print '\n'.join('%s: %.2f' % t for t in sorted(util.TOTAL_TIME.iteritems(), reverse=True, key=lambda x: x[1]))
   print '\n'.join('Move %d: %d' % (t[1], t[0]) for t in sorted(M, reverse=True))
-  print 'Total:', sum(x[0] for x in M)
+  print 'Total dfs leaves:', sum(x[0] for x in M)
+  print 'Time per move:', ', '.join('%d: %.1f' % tup for tup in sorted(util.MOVE_TIMES.iteritems(), key=lambda x: -x[1]))

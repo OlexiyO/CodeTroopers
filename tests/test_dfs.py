@@ -1,11 +1,28 @@
 import unittest
 from constants import Point
+import dfs
 from model.ActionType import ActionType
 from model.Move import Move
 from tests.test_util import ContextFromFile
 
 
 class BattleTest(unittest.TestCase):
+
+  def testTimeout(self):
+    strat, context = ContextFromFile('068_3_1_map05')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.HEAL)
+    self.assertEqual(move.x, 21)
+    self.assertEqual(move.y, 12)
+    dfs.PrintDebugInfo()
+
+  def testRunAwayFromUnknown(self):
+    # In this case, we just got in touch with enemy -- and it makes sense to run away because it is too dangerous.
+    strat, context = ContextFromFile('088_4_2_map04')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertNotEqual(move.action, ActionType.SHOOT)
 
   def testSniperLowerStance(self):
     strat, context = ContextFromFile('057_3_3_map05')
@@ -76,6 +93,7 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.action, ActionType.THROW_GRENADE)
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 13)
+    dfs.PrintDebugInfo()
 
 
 class ScoutingTest(unittest.TestCase):

@@ -238,9 +238,11 @@ class MyStrategy(object):
           return
 
     if context.enemies:
+      import time
+      t0 = time.time()
       self.CombatMove(context, move)
-      if context.me.type == TrooperType.SNIPER:
-        print context.enemies
+      t1 = time.time()
+      util.MOVE_TIMES[context.world.move_index] = util.MOVE_TIMES.get(context.world.move_index, 0) + (t1 - t0)
     else:
       scouting.ScoutingMove(context, move)
 

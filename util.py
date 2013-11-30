@@ -45,12 +45,12 @@ def ReduceHP(hp, dmg):
 
 
 TOTAL_TIME = {}
+MOVE_TIMES = {}
 import time
 
 def TimeMe(func):
   #if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
-  return func
-  '''
+  #return func
   def Wrapped(*args, **kwargs):
     x = time.time()
     r = func(*args, **kwargs)
@@ -60,7 +60,6 @@ def TimeMe(func):
     TOTAL_TIME[key] = t0 + dt
     return r
   return Wrapped
-  '''
 
 
 @TimeMe
@@ -68,7 +67,7 @@ def IsVisible(context, max_range, viewer_x, viewer_y, viewer_stance, object_x, o
   if (object_x - viewer_x) ** 2 + (object_y - viewer_y) ** 2 > max_range * max_range:
     return False
   min_stance_index = min(viewer_stance, object_stance)
-  cv = min_stance_index + 3 * (object_y + context.world.height * (object_x + context.world.width * (viewer_y + context.world.height * viewer_x)))
+  cv = min_stance_index + 3 * object_y + 60 * object_x + 1800 * viewer_y + 36000 * viewer_x
   return ord(context.world.cell_visibilities[cv]) == 1
 
 
@@ -225,3 +224,4 @@ def ComputeItemBonuses(context, trooper):
   energy_bonus = max(0, (G.field_ration_bonus_action_points - G.field_ration_eat_cost) * dps)
   grenade_bonus = max(0, (G.grenade_direct_damage - G.grenade_throw_cost * dps))
   return [medikit_bonus, energy_bonus, grenade_bonus]
+

@@ -200,9 +200,9 @@ class FieldMedicHeal(Action):
     move.x, move.y = target.xy.x, target.xy.y
 
 
-class Medikit(Action):
+class UseMedikit(Action):
   def __init__(self, context, who):
-    super(Medikit, self).__init__(context)
+    super(UseMedikit, self).__init__(context)
     self.who = who
 
   def _IsPossible(self, position):

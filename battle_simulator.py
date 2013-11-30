@@ -1,3 +1,4 @@
+import operator
 import global_vars
 from model.TrooperType import TrooperType
 import params
@@ -12,6 +13,7 @@ orig_allies_hp = [0] * 5
 allies_hp = [0] * 5
 allies = [None] * 5
 enemies = [None] * 20
+allies_under_captain = [False] * 5
 
 
 class BattleSimulator(object):
@@ -31,7 +33,7 @@ class BattleSimulator(object):
     global orig_enemies_hp
     global enemies_hp
     global enemies
-    for xy, hp in sorted(position.enemies_hp.iteritems(), key=lambda x: x[1]):
+    for xy, hp in sorted(position.enemies_hp.iteritems(), key=operator.itemgetter(1)):
       if hp > 0:
         enemies[self.ecount] = context.enemies[xy]
         enemies_hp[self.ecount] = hp
@@ -40,7 +42,7 @@ class BattleSimulator(object):
           self.enemy_captain_ind = self.ecount
         self.ecount += 1
 
-    for t, hp in sorted(enumerate(position.allies_hp), key=lambda x: x[1]):
+    for t, hp in sorted(enumerate(position.allies_hp), key=operator.itemgetter(1)):
       if hp is not None and hp > 0:
         unit = position.GetUnit(t)
         allies[self.acount] = unit
@@ -54,12 +56,11 @@ class BattleSimulator(object):
     #self.they_see_us = [list([False] * len(self.allies)) for _ in self.enemies]
     global we_shoot_them
     global they_shoot_us
+    global allies_under_captain
     if self.ally_captain_ind != -1:
       capxy = allies[self.ally_captain_ind].xy
-      self.allies_under_captain = [util.WithinRange(ally.xy, capxy, context.game.commander_aura_range)
-                                   for ally in allies[:self.acount]]
-    else:
-      self.allies_under_captain = [False] * self.acount
+      for n, ally in enumerate(allies[:self.acount]):
+        allies_under_captain[n] = False if n == self.ally_captain_ind else util.WithinRange(ally.xy, capxy, context.game.commander_aura_range)
     if self.enemy_captain_ind != -1:
       capxy = enemies[self.enemy_captain_ind].xy
       self.enemies_under_captain = [util.WithinRange(enemy.xy, capxy, context.game.commander_aura_range)
@@ -69,9 +70,7 @@ class BattleSimulator(object):
 
     for i, a in enumerate(allies[:self.acount]):
       for j, e in enumerate(enemies[:self.ecount]):
-        #self.we_see_them[i][j] = util.CanSee(context, a, e)
         we_shoot_them[i][j] = util.CanShoot(context, a, e)
-        #self.they_see_us[j][i] = util.CanSee(context, e, a)
         they_shoot_us[j][i] = util.CanShoot(context, e, a)
 
   @util.TimeMe
@@ -80,14 +79,14 @@ class BattleSimulator(object):
     global allies_hp
     global allies
     global enemies_hp
+    global allies_under_captain
     for i, a in enumerate(allies[:self.acount]):
       if a.type == t:
         if allies_hp[i] <= 0:
           return
         ap = a.initial_action_points
-        if (0 < self.ally_captain_ind and
-            self.ally_captain_ind != i and
-            self.allies_under_captain[i] and
+        if (0 <= self.ally_captain_ind and
+            allies_under_captain[i] and
             allies_hp[self.ally_captain_ind] > 0):
           ap += self.context.game.commander_aura_bonus_action_points
         num_shots = ap / a.shoot_cost
@@ -97,6 +96,7 @@ class BattleSimulator(object):
             cnt = min((hp + dmg - 1) / dmg, num_shots)
             num_shots -= cnt
             enemies_hp[j] = max(0, hp - dmg * cnt)
+        return
 
   @util.TimeMe
   def EnemyShot(self, t):
@@ -110,7 +110,7 @@ class BattleSimulator(object):
           continue
 
         ap = e.initial_action_points
-        if (0 < self.enemy_captain_ind and
+        if (0 <= self.enemy_captain_ind and
             self.enemy_captain_ind != i and
             enemies_hp[self.enemy_captain_ind] > 0 and
             self.enemies_under_captain[i]):

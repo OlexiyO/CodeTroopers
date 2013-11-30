@@ -19,7 +19,7 @@ def RunServer(config_file, seed):
 
 
 def RunOldPlayer(port, ID, first_moves_random):
-  D = 'C:/Coding/CodeTroopers/v11/'
+  D = 'C:/Coding/CodeTroopers/v12/'
   STRATEGY = os.path.join(D, 'RunPlayer.py')
   call(['python', STRATEGY, '127.0.0.1', str(port), ID, first_moves_random], shell=True, cwd=D)
 
@@ -27,7 +27,7 @@ def RunOldPlayer(port, ID, first_moves_random):
 def RunLatestPlayer(port, ID, with_debug, first_moves_random):
   if with_debug:
     global_vars.FIRST_MOVES_RANDOM = int(first_moves_random or '0')
-    runner = BaseRunner.Runner(port=port, seed=ID)
+    runner = BaseRunner.Runner(port=port)
     util.StartSavingDebugDataToDisk()
     runner.run()
     dfs.PrintDebugInfo()

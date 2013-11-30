@@ -4,9 +4,9 @@ from utilities.RemoteProcessClient import RemoteProcessClient
 
 
 class Runner:
-    def __init__(self, port, seed):
+    def __init__(self, port):
       self.remote_process_client = RemoteProcessClient('127.0.0.1', int(port))
-      self.token = '0000000000000000' #seed
+      self.token = '0000000000000000'
 
     def run(self):
         try:

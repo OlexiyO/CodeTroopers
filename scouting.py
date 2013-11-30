@@ -1,4 +1,4 @@
-from actions import Position, FieldMedicHeal, Medikit
+from actions import Position, FieldMedicHeal, UseMedikit
 from constants import *
 import global_vars
 import map_util
@@ -29,7 +29,7 @@ def MaybeMedikit(position, context, move):
     return False
   who = context.allies[where].type
   if util.NextCell(where, position.me.xy) or where == position.me.xy:
-    act = Medikit(context, who)
+    act = UseMedikit(context, who)
     if act.Allowed(position):
       act.SetMove(position, move)
       return True

@@ -24,7 +24,7 @@ def HashOfMap(context):
 
 def SecureOnFirstTurn(context):
   map_name = context.map_name
-  return map_name not in ['cheeser', 'map03', 'map02']
+  return map_name in ['cheeser', 'map04', 'map05']
 
 
 def RelaxAttackingOrder(context):
