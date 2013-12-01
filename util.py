@@ -224,4 +224,3 @@ def ComputeItemBonuses(context, trooper):
   energy_bonus = max(0, (G.field_ration_bonus_action_points - G.field_ration_eat_cost) * dps)
   grenade_bonus = max(0, (G.grenade_direct_damage - G.grenade_throw_cost * dps))
   return [medikit_bonus, energy_bonus, grenade_bonus]
-

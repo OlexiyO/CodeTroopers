@@ -23,6 +23,7 @@ def ContextFromFile(filename):
   context._FillDistancesFromMe()
   context.map_name = map_util.MapName(context)
   s.FillCornersOrder(context)
+  global_vars.FORCED_ACTIONS = []
 
   return s, context
 

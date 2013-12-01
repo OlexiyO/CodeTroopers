@@ -2,6 +2,7 @@ import cPickle as pickle
 import os
 from random import randint
 import time
+from actions import Position
 
 import battle_evaluator
 from constants import *
@@ -222,12 +223,6 @@ class MyStrategy(object):
     searcher.DoSearch(battle_evaluator.EvaluatePosition, context, move)
 
   def RealMove(self, context, move):
-    me = context.me
-
-    if me.action_points < 2:
-      move.action = ActionType.END_TURN
-      return
-
     if global_vars.FIRST_MOVES_RANDOM > context.world.move_index:
       for d in range(20):
         d1 = ALL_DIRS[d % 4]
@@ -237,6 +232,12 @@ class MyStrategy(object):
           move.x, move.y = p1.x, p1.y
           return
 
+    if global_vars.FORCED_ACTIONS and context.me.type == global_vars.FORCED_TYPE:
+      act = global_vars.FORCED_ACTIONS[0]
+      global_vars.FORCED_ACTIONS = global_vars.FORCED_ACTIONS[1:]
+      pos = Position(context)
+      act.SetMove(pos, move)
+      return
     if context.enemies:
       import time
       t0 = time.time()

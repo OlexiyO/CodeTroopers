@@ -38,20 +38,24 @@ class Searcher(object):
     self.pos.action_points = 0
     self.bestScore = self.evaluate_fn(context, self.pos)
     self.pos.action_points = ap
-    self.bestAction = NoneAction(context)
+    self.bestActions = [NoneAction(context)]
     self.context = context
-    self.fa = None
     self.total_count = 0
     self._constraints = [Constraints()]
-    self.last_move = [None] * 25
+    self.moves = [None] * 25
     self.index = 0
     self._DFS([])
     M.append((self.total_count, global_vars.TURN_INDEX))
     context.me = old_me
-    self.bestAction.SetMove(self.pos, move)
+    best_act = self.bestActions[0]
+    best_act.SetMove(self.pos, move)
+    if isinstance(best_act, (UseMedikit, FieldMedicHeal, LowerStance, RaiseStance, Energizer)):
+      global_vars.FORCED_ACTIONS, global_vars.FORCED_TYPE = self.bestActions[1:], self.pos.me.type
+    else:
+      global_vars.FORCED_ACTIONS, global_vars.FORCED_TYPE = [], None
 
-  def LastMove(self):
-    return self.last_move[self.index]
+  def PrevMove(self):
+    return self.moves[self.index - 1] if self.index > 0 else None
 
   def UpdateWhereTo(self, walked_to, act):
     if type(act) == Walk:
@@ -67,7 +71,7 @@ class Searcher(object):
 
   def _Try(self, A, walked_to, extra=None):
     actions = [A] + (extra or [])
-    banned_moves = NEXT_BANNED_MOVES.get(type(self.LastMove()), ())
+    banned_moves = NEXT_BANNED_MOVES.get(type(self.PrevMove()), ())
     act = actions[0]
     if isinstance(act, banned_moves):
       return False
@@ -81,9 +85,7 @@ class Searcher(object):
         success = False
         break
       to_revert.append(act.Apply(self.pos))
-      if self.index == 0:
-        self.fa = act
-      self.last_move[self.index + 1] = act
+      self.moves[self.index] = act
       self.index += 1
       global CALLS
       CALLS[type(act)] = CALLS.get(type(act), 0) + 1
@@ -96,8 +98,6 @@ class Searcher(object):
 
     for info in reversed(to_revert):
       self.index -= 1
-      if self.index == 0:
-        self.fa = None
       act.Undo(self.pos, info)
     return success
 
@@ -106,7 +106,7 @@ class Searcher(object):
     if self.index > 0:
       score = self.evaluate_fn(self.context, self.pos)
       if score > self.bestScore:
-        self.bestScore, self.bestAction = score, self.fa
+        self.bestScore, self.bestActions = score, list(self.moves[:self.index])
 
     if self.pos.action_points > 0:
       self._TryMoves(walked_to)
