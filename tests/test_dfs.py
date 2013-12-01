@@ -12,7 +12,7 @@ class BattleTest(unittest.TestCase):
     strat, context = ContextFromFile('068_3_1_map05')
     move = Move()
     strat.RealMove(context, move)
-    self.assertEqual(move.action, ActionType.HEAL)
+    self.assertEqual(move.action, ActionType.USE_MEDIKIT)
     self.assertEqual(move.x, 21)
     self.assertEqual(move.y, 12)
     dfs.PrintDebugInfo()
