@@ -21,6 +21,8 @@ class Constraints(object):
     self.can_heal = [True] * TOTAL_UNIT_TYPES
     self.can_energize = True
     self.visited = set()
+    self.grenade_at = set()
+    self.can_shoot = True
 
 
 class Searcher(object):
@@ -50,13 +52,13 @@ class Searcher(object):
     return self.last_move[self.index]
 
   def _Try(self, act):
-    #return super(BattleSearcher, self)._Try(act)
     banned_moves = NEXT_BANNED_MOVES.get(type(self.LastMove()), ())
     if isinstance(act, banned_moves):
       return False
 
     if not act.Allowed(self.pos):
       return False
+
     info = act.Apply(self.pos)
     if self.index == 0:
       self.fa = act
