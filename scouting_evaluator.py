@@ -9,13 +9,17 @@ import util
 
 
 def EvaluatePosition(context, position):
+  if global_vars.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE) > 3:
+    return -100000
+  M = max(global_vars.ManhDist(position.me.xy, xy) for xy in context.allies)
+  too_far_penalty = max(0, (M - params.TOO_FAR_FROM_HERD)) * -100000
   benefit_score = _TowardsTheGoalScore(context, position)
-  safety_score = _SafetyScore(context, position)
-  action_points_score = position.action_points * .1
+  safety_score = 0 #_SafetyScore(context, position)
+  action_points_score = 0 #position.action_points * .1
   if safety_score >= 0:
-    return benefit_score + action_points_score
+    return benefit_score + action_points_score + too_far_penalty
   else:
-    return safety_score + action_points_score
+    return safety_score + action_points_score + too_far_penalty
 
 
 def NeedBonus(context, position, bt):
@@ -58,11 +62,11 @@ def _BonusesScore(context, position):
 
 def _TowardsTheGoalScore(context, position):
   hp_improvement = _HealEffect(context, position) * 1.2
-  items_bonus = _HoldItemsBonus(context, position) * .2
+  items_bonus = _HoldItemsBonus(context, position)
   next_corner = global_vars.NextCorner()
   dist = global_vars.distances[next_corner.x][next_corner.y][position.me.xy.x][position.me.xy.y]
   dist_score = 100 - dist
-  return hp_improvement + items_bonus + dist_score
+  return hp_improvement + items_bonus + dist_score * .5
 
 
 def _GetCellDangerScore(context, position):
@@ -77,6 +81,8 @@ def _GetCellDangerScore(context, position):
 
 def _SafetyScore(context, position):
   #sparsity_penalty = _DistFromHerdPenalty(context, position)
+  return -_AttackingOrderPenalty(context, position)
+  '''
   if context.world.move_index == 0 and map_util.SecureOnFirstTurn(context):
     return 0
 
@@ -85,6 +91,7 @@ def _SafetyScore(context, position):
     return -cell_danger_score * 100
   else:
     return -_AttackingOrderPenalty(context, position)
+  '''
 
 
 def _AttackingOrderPenalty(context, position):

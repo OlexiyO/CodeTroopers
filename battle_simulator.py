@@ -36,10 +36,14 @@ class BattleSimulator(object):
       see_me |= can_see
       they_see_us[enemy_index][my_type] = can_see
 
+    self.i_shoot_them = False
+
     for enemy_index, xy in enumerate(enemies_xy):
       if see_me:
         enemy = context.enemies[xy]
-        we_shoot_them[my_type][enemy_index] = util.CanShoot(context, position.me, enemy)
+        can_shoot = util.CanShoot(context, position.me, enemy)
+        we_shoot_them[my_type][enemy_index] = can_shoot
+        self.i_shoot_them |= can_shoot
         they_shoot_us[enemy_index][my_type] = see_me and util.CanShoot(context, enemy, position.me)
       else:
         they_shoot_us[enemy_index][my_type] = False
@@ -119,6 +123,8 @@ def EnemyFights(context, position):
       gained += params.PREDICTION_DMG_DISCOUNT * simulator.MyShot(turn.unit)
     elif enemy_sees_us:
       lost += simulator.EnemyShot(turn.unit)
+  if not simulator.i_shoot_them:
+    gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
   return enemy_sees_us, gained, lost
 
 

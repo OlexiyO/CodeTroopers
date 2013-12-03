@@ -3,7 +3,7 @@ from utilities.create_config import CreateConfigFile
 
 SHARED_ID = '0000000000000000'
 #SHARED_ID = '3513451172593653' -- VERY slow battle on map02
-SHARED_ID = '3672549783584811'
+SHARED_ID = '3851996827513527'
 
 output_filepath = 'C:/Coding/CodeTroopers/Combat/result.txt'
 base_port = 31111
@@ -13,7 +13,7 @@ config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='map02',
+                               map_name='default',
                                my_player_index=my_player_index)
 import time
 time.sleep(.05)

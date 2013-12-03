@@ -25,6 +25,7 @@ def ContextFromFile(filename):
   context.map_name = map_util.MapName(context)
   s.FillCornersOrder(context)
   global_vars.FORCED_ACTIONS = []
+  global_vars.POSITION_AT_START_MOVE = context.me.xy
 
   print 'Enemies', [util.PrintTrooper(e) for e in context.enemies.itervalues()]
   print 'Allies', [util.PrintTrooper(a) for a in context.allies.itervalues()]

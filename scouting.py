@@ -1,11 +1,11 @@
 from actions import Position, FieldMedicHeal, UseMedikit
 from constants import *
+from dfs import ScoutingSearcher
 import global_vars
 import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
-from scout_dfs import ScoutingSearcher
 import scouting_evaluator
 import util
 
@@ -99,20 +99,20 @@ def StanceForRunning(context, trooper):
 
 @util.TimeMe
 def ScoutingMove(context, move):
-  if context.me.action_points < 2:
-    return
+  # Leave 2 steps.
   if context.me.xy == global_vars.NextCorner():
-    global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + 1) % 4
-  if TryHeal(context, move):
-    return
+    global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + 3) % 4
 
-  if context.me.stance < StanceForRunning(context, context.me):
-    move.action = ActionType.RAISE_STANCE
-  elif context.me.stance > StanceForRunning(context, context.me):
-    move.action = ActionType.LOWER_STANCE
-  else:
-    searcher = ScoutingSearcher()
-    searcher.DoSearch(scouting_evaluator.EvaluatePosition, context, move)
+  if context.me.action_points >= 2:
+    if context.me.stance < StanceForRunning(context, context.me):
+      move.action = ActionType.RAISE_STANCE
+      return
+    elif context.me.stance > StanceForRunning(context, context.me):
+      move.action = ActionType.LOWER_STANCE
+      return
+
+  searcher = ScoutingSearcher()
+  return searcher.DoSearch(scouting_evaluator.EvaluatePosition, context, move)
 
 
 def SetWalk(where, move):

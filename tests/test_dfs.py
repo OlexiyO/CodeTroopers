@@ -5,6 +5,7 @@ import dfs
 import global_vars
 from model.ActionType import ActionType
 from model.Move import Move
+import scouting
 from tests.test_util import ContextFromFile
 
 
@@ -161,3 +162,9 @@ class ScoutingTest(unittest.TestCase):
     self.assertEqual(move.action, ActionType.MOVE)
     self.assertEqual(move.x, 23)
     self.assertEqual(move.y, 1)
+
+  def testDontEatEnergizer(self):
+    strat, context = ContextFromFile('004_0_3_map04')
+    move = Move()
+    plan = scouting.ScoutingMove(context, move)
+    self.assertFalse(any(isinstance(x, actions.Energizer) for x in plan))

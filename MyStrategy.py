@@ -1,6 +1,5 @@
 import cPickle as pickle
 import os
-from random import randint
 import time
 from actions import Position
 
@@ -9,12 +8,12 @@ from constants import *
 import constants
 
 from context import Context
+from dfs import BattleSearcher
 import global_vars
 import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
-from battle_dfs import BattleSearcher
 import scouting
 import util
 
@@ -74,7 +73,9 @@ class MyStrategy(object):
     if context.me.type not in global_vars.UNITS_ORDER:
       assert context.world.move_index == 0, context.world.move_index
       global_vars.UNITS_ORDER.append(context.me.type)
-    
+
+    if not self.IsContinuingMove(context):
+      global_vars.POSITION_AT_START_MOVE = context.me.xy
     # Update enemies.
     self._MergeEnemiesInfo(context)
     self._MergeBonusesInfo(context)
@@ -221,7 +222,7 @@ class MyStrategy(object):
 
   def CombatMove(self, context, move):
     searcher = BattleSearcher()
-    searcher.DoSearch(battle_evaluator.EvaluatePosition, context, move)
+    return searcher.DoSearch(battle_evaluator.EvaluatePosition, context, move)
 
   def RealMove(self, context, move):
     if global_vars.FIRST_MOVES_RANDOM > context.world.move_index:
@@ -236,7 +237,7 @@ class MyStrategy(object):
       '''
       return
 
-    if global_vars.FORCED_ACTIONS and context.me.type == global_vars.FORCED_TYPE:
+    if global_vars.FORCED_ACTIONS and context.world.move_index == global_vars.MOVE_INDEX:
       print 'Using pre-computed action!'
       act = global_vars.FORCED_ACTIONS[0]
       global_vars.FORCED_ACTIONS = global_vars.FORCED_ACTIONS[1:]
@@ -244,7 +245,7 @@ class MyStrategy(object):
       act.SetMove(pos, move)
       return
     global_vars.FORCED_ACTIONS = []
-    global_vars.FORCED_TYPE = None
+    global_vars.MOVE_INDEX = None
     if context.enemies:
       import time
       t0 = time.time()
@@ -267,7 +268,7 @@ class MyStrategy(object):
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
     y = 0 if y > (Y / 2) else Y - 1  # Switch y
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-    global_vars.NEXT_CORNER = 1
+    global_vars.NEXT_CORNER = 3
 
 
 def ClosestEmptyCell(context, to):
