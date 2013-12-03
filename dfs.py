@@ -8,26 +8,16 @@ M = []
 
 # Grenade > Shoot > Heal
 # Stance > Grenade > Heal
-
 NEXT_BANNED_MOVES = {
   LowerStance: (RaiseStance, Walk, ThrowGrenade, FieldMedicHeal, UseMedikit),
   RaiseStance: (LowerStance, ThrowGrenade, FieldMedicHeal, UseMedikit),
-  Walk: (RaiseStance,),
-  Shoot: (UseMedikit, FieldMedicHeal),
+  Walk: (RaiseStance, ),
   ThrowGrenade: (Shoot, UseMedikit, FieldMedicHeal),
-  }
-
-
-class Constraints(object):
-  def __init__(self):
-    self.can_heal = [True] * TOTAL_UNIT_TYPES
-    self.can_medikit = [True] * TOTAL_UNIT_TYPES
-    self.shoot_at = set()
-    self.can_energize = True
-    self.visited = set()
-    self.grenade_at = set()
-    self.can_shoot = True
-
+  Shoot: (UseMedikit, FieldMedicHeal),
+  FieldMedicHeal: (),
+  UseMedikit: (),
+  Energizer: (),
+}
 
 class Searcher(object):
   @util.TimeMe
@@ -44,10 +34,9 @@ class Searcher(object):
     self.bestActions = [NoneAction(context)]
     self.context = context
     self.total_count = 0
-    self._constraints = [Constraints()]
     self.moves = [None] * 25
     self.index = 0
-    self._DFS([self.pos.me.xy])
+    self._DFS(can_walk=True)
     M.append((self.total_count, global_vars.TURN_INDEX))
     context.me = old_me
     best_act = self.bestActions[0]
@@ -57,32 +46,21 @@ class Searcher(object):
       global_vars.FORCED_ACTIONS, global_vars.FORCED_TYPE = self.bestActions[1:], self.pos.me.type
     else:
       global_vars.FORCED_ACTIONS, global_vars.FORCED_TYPE = [], None
+    return self.bestActions
 
   def PrevMove(self):
     return self.moves[self.index - 1] if self.index > 0 else None
 
-  def UpdateWhereTo(self, walked_to, act):
-    if type(act) == Walk:
-      if act.where in walked_to:
-        return False, []
-      else:
-        return True, walked_to + [act.where]
-    else:
-      if isinstance(act, (FieldMedicHeal, UseMedikit)) and act.who == self.pos.me.type:
-        return True, walked_to
-      else:
-        return True, []
-
-  def _Try(self, A, walked_to, extra=None):
-    actions = [A] + (extra or [])
+  def _Try(self, actions, can_walk):
+    actions = actions if isinstance(actions, list) else [actions]
+    assert isinstance(actions[0], BaseAction)
     banned_moves = NEXT_BANNED_MOVES.get(type(self.PrevMove()), ())
-    act = actions[0]
-    if isinstance(act, banned_moves):
+    a0 = actions[0]
+    if isinstance(a0, banned_moves):
       return False
 
     to_undo = []
     success = True
-    where_moves = walked_to
 
     for act in actions:
       if not act.Allowed(self.pos):
@@ -93,29 +71,29 @@ class Searcher(object):
       self.index += 1
       global CALLS
       CALLS[type(act)] = CALLS.get(type(act), 0) + 1
-      success, where_moves = self.UpdateWhereTo(where_moves, act)
       if not success:
         break
 
     if success:
-      self._DFS(where_moves)
+      self._DFS(can_walk=can_walk)
 
     for act, info in reversed(to_undo):
       self.index -= 1
       act.Undo(self.pos, info)
     return success
 
-  def _DFS(self, walked_to):
+  def _DFS(self, can_walk):
     self.total_count += 1
     if self.index > 0:
       score = self.evaluate_fn(self.context, self.pos)
       if score > self.bestScore:
         self.bestScore, self.bestActions = score, list(self.moves[:self.index])
+        #self.evaluate_fn(self.context, self.pos) # For debug
 
     if self.pos.action_points > 0:
-      self._TryMoves(walked_to)
+      self._TryMoves(can_walk=can_walk)
 
-  def _TryMoves(self, walked_to):
+  def _TryMoves(self, can_walk):
     raise NotImplementedError
 
 

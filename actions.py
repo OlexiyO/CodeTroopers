@@ -74,7 +74,7 @@ class Position(object):
       return self.allies_by_type[utype]
 
 
-class Action(object):
+class BaseAction(object):
 
   def __init__(self, context):
     self.context = context
@@ -122,7 +122,7 @@ class Action(object):
     position.action_points -= cost
 
 
-class NoneAction(Action):
+class NoneAction(BaseAction):
 
   def _IsPossible(self, position):
     return True
@@ -140,7 +140,7 @@ class NoneAction(Action):
     return 0
 
 
-class Energizer(Action):
+class Energizer(BaseAction):
 
   def _IsPossible(self, position):
     return position.holding_field_ration
@@ -168,7 +168,7 @@ class Energizer(Action):
     move.direction = Direction.CURRENT_POINT
 
 
-class FieldMedicHeal(Action):
+class FieldMedicHeal(BaseAction):
   def __init__(self, context, who):
     super(FieldMedicHeal, self).__init__(context)
     self.who = who
@@ -206,7 +206,7 @@ class FieldMedicHeal(Action):
     move.x, move.y = target.xy.x, target.xy.y
 
 
-class UseMedikit(Action):
+class UseMedikit(BaseAction):
   def __init__(self, context, who):
     super(UseMedikit, self).__init__(context)
     self.who = who
@@ -249,7 +249,7 @@ class UseMedikit(Action):
     move.x, move.y = target.xy.x, target.xy.y
 
 
-class Walk(Action):
+class Walk(BaseAction):
   def __init__(self, context, where):
     super(Walk, self).__init__(context)
     self.where = where
@@ -289,7 +289,7 @@ class Walk(Action):
     move.x, move.y = self.where.x, self.where.y
 
 
-class Shoot(Action):
+class Shoot(BaseAction):
   def __init__(self, context, where):
     super(Shoot, self).__init__(context)
     self.where = where
@@ -321,7 +321,7 @@ class Shoot(Action):
     move.x, move.y = self.where.x, self.where.y
 
 
-class ThrowGrenade(Action):
+class ThrowGrenade(BaseAction):
   def __init__(self, context, where):
     super(ThrowGrenade, self).__init__(context)
     self.where = where
@@ -350,7 +350,7 @@ class ThrowGrenade(Action):
       if p == self.where:
         position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
       elif util.NextCell(p, self.where):
-        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
+        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_collateral_damage)
     for t, ally_hp in enumerate(position.allies_hp):
       if ally_hp is None:
         continue
@@ -358,7 +358,7 @@ class ThrowGrenade(Action):
       if xy == self.where:
         position.allies_hp[t] = util.ReduceHP(position.allies_hp[t], self.context.game.grenade_direct_damage)
       elif util.NextCell(xy, self.where):
-        position.allies_hp[t] = util.ReduceHP(position.allies_hp[t], self.context.game.grenade_direct_damage)
+        position.allies_hp[t] = util.ReduceHP(position.allies_hp[t], self.context.game.grenade_collateral_damage)
 
     MaybePickupBonus(position, self.context)
     return ap, hp, ehp, bonuses
@@ -368,7 +368,7 @@ class ThrowGrenade(Action):
     position.action_points, position.allies_hp, position.enemies_hp, position.bonuses_present = info
 
 
-class RaiseStance(Action):
+class RaiseStance(BaseAction):
   def _IsPossible(self, position):
     return position.me.stance != TrooperStance.STANDING
 
@@ -389,7 +389,7 @@ class RaiseStance(Action):
     move.action = ActionType.RAISE_STANCE
 
 
-class LowerStance(Action):
+class LowerStance(BaseAction):
   def _IsPossible(self, position):
     return position.me.stance != TrooperStance.PRONE
 

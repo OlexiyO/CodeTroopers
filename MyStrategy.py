@@ -204,7 +204,7 @@ class MyStrategy(object):
       action_name = util.GetName(ActionType, move.action)
       move_desc = ('(%2d, %2d)' % (move.x, move.y)) if move.x != -1 else ''
       print ('Move %d: %11s@(%2d, %2d) %s (%2d ap)'
-             % (world.move_index, unit_type, me.x, me.y, my_stance, me.action_points) + ':       %s -> %s' % (action_name, move_desc))
+             % (world.move_index, unit_type, me.xy.x, me.xy.y, my_stance, me.action_points) + ':       %s -> %s' % (action_name, move_desc))
       if global_vars.AT_HOME:
         if move.action == ActionType.MOVE and me.action_points < util.MoveCost(context, me.stance):
           print 'Please check bug at C:/Coding/CodeTroopers/bad_context.pickle'

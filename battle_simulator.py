@@ -6,6 +6,7 @@ import util
 
 we_shoot_them = None
 they_shoot_us = None
+they_see_us = None
 full_order = None
 enemies_xy = None
 
@@ -25,14 +26,21 @@ class BattleSimulator(object):
     self.allies_hp = list(position.allies_hp)
     self.enemies_hp = [position.enemies_hp[xy] for xy in enemies_xy]
     my_type = position.me.type
-    self.see_me = any(self.enemies_hp[enemy_index] > 0 and util.CanSee(context, context.enemies[xy], position.me)
-                      for enemy_index, xy in enumerate(enemies_xy))
+    see_me = False
+    global they_see_us
+    global we_shoot_them
+    global they_shoot_us
+    for enemy_index, xy in enumerate(enemies_xy):
+      enemy = context.enemies[xy]
+      can_see = self.enemies_hp[enemy_index] > 0 and util.CanSee(context, enemy, position.me)
+      see_me |= can_see
+      they_see_us[enemy_index][my_type] = can_see
 
     for enemy_index, xy in enumerate(enemies_xy):
-      if self.see_me:
+      if see_me:
         enemy = context.enemies[xy]
         we_shoot_them[my_type][enemy_index] = util.CanShoot(context, position.me, enemy)
-        they_shoot_us[enemy_index][my_type] = self.see_me and util.CanShoot(context, enemy, position.me)
+        they_shoot_us[enemy_index][my_type] = see_me and util.CanShoot(context, enemy, position.me)
       else:
         they_shoot_us[enemy_index][my_type] = False
 
@@ -94,18 +102,24 @@ class BattleSimulator(object):
       num_shots -= (dmg_done + dmg - 1)/ dmg
     return res
 
+  def SomeEnemySeesUs(self):
+    for enemy_index, hp in enumerate(self.enemies_hp):
+      if hp > 0 and any(they_see_us[enemy_index]):
+        return True
+    return False
 
 def EnemyFights(context, position):
   global full_order
+  simulator = BattleSimulator(context, position)
+  enemy_sees_us = simulator.SomeEnemySeesUs()
   gained = 0
   lost = 0
-  simulator = BattleSimulator(context, position)
   for turn in full_order:
     if turn.side == MY_TURN:
       gained += params.PREDICTION_DMG_DISCOUNT * simulator.MyShot(turn.unit)
-    else:
+    elif enemy_sees_us:
       lost += simulator.EnemyShot(turn.unit)
-  return gained, lost
+  return enemy_sees_us, gained, lost
 
 
 def EnemyRuns(context, position):
@@ -126,11 +140,10 @@ def EnemyRuns(context, position):
 @util.TimeMe
 def PredictBattle(context, position):
   # TODO: More complex stuff (so, (25, 0) is better than (50, 25))
-  gained, lost = EnemyFights(context, position)
-  if lost == 0:
-    lost -= params.THEY_DONT_SEE_US_BONUS
+  enemy_sees_us, gained, lost = EnemyFights(context, position)
   they_run, _ = EnemyRuns(context, position)
-  return min(gained - lost * params.HEAL_DISCOUNT, they_run)
+  safety_bonus = 0 if enemy_sees_us else params.THEY_DONT_SEE_US_BONUS
+  return safety_bonus + min(gained - lost * params.HEAL_DISCOUNT, they_run)
 
 
 # What do we store
@@ -165,18 +178,23 @@ def Precompute(context, position):
           full_order.append(BattleTurn(ENEMY_TURN, round, enemy_index))
   global we_shoot_them
   global they_shoot_us
+  global they_see_us
   we_shoot_them = util.Array2D(False, N, E)
   they_shoot_us = util.Array2D(False, E, N)
-
-  they_see_us = [False] * N
-  for ally_type in range(N):
-    ally = position.GetUnit(ally_type)
-    they_see_us[ally_type] = any(util.CanSee(context, enemy, ally) for enemy in context.enemies.itervalues())
+  they_see_us = util.Array2D(False, E, N)
 
   for ally_type in range(N):
     ally = position.GetUnit(ally_type)
     if ally is not None:
       for enemy_index, xy in enumerate(enemies_xy):
         enemy = context.enemies[xy]
+        they_see_us[enemy_index][ally_type] = util.CanSee(context, enemy, ally)
+
+  for ally_type in range(N):
+    ally = position.GetUnit(ally_type)
+    see_ally = any(they_see_us[ei][ally_type] for ei in range(E))
+    if ally is not None and ally.type != position.me.type:
+      for enemy_index, xy in enumerate(enemies_xy):
+        enemy = context.enemies[xy]
         we_shoot_them[ally_type][enemy_index] = util.CanShoot(context, ally, enemy)
-        they_shoot_us[enemy_index][ally_type] = they_see_us[ally_type] and util.CanShoot(context, enemy, ally)
+        they_shoot_us[enemy_index][ally_type] = see_ally and util.CanShoot(context, enemy, ally)

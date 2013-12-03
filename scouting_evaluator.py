@@ -1,3 +1,4 @@
+from battle_evaluator import _HoldItemsBonus, _HealEffect
 from constants import Point
 import global_vars
 import map_util
@@ -55,56 +56,13 @@ def _BonusesScore(context, position):
   return sum(score * mult for score, mult in zip(scores, mults))
 
 
-def _DistFromCommanderBonusPointsScore(context, position):
-  G = context.game
-  # Doesn't apply.
-  if position.me.type == TrooperType.COMMANDER or position.me.type == TrooperType.SCOUT:
-    return 0
-  # Commander is dead.
-  if context.officer.type != TrooperType.COMMANDER:
-    return 0
-  dist = util.Dist(Point(context.officer.x, context.officer.y), position.me.xy)
-  if dist <= G.commander_aura_range + 1e-6:
-    return G.commander_aura_bonus_action_points * params.EXTRA_ACTION_POINT_BONUS
-  else:
-    return -(dist - G.commander_aura_range)
-
-
-def _DistFromHerdPenalty(context, position):
-  if len(context.allies) == 1:
-    return 0
-  officer = context.officer
-  D = global_vars.distances[position.me.xy.x][position.me.xy.y]
-
-  def DistToPen(dist):
-    if dist > context.CloseEnough():
-      return params.TOO_FAR_PENALTY * ((dist - context.CloseEnough()) ** 2)
-    else:
-      return 0
-
-  if position.me.type != officer.type:
-    return DistToPen(D[officer.x][officer.y])
-
-  cnt = 0
-  score = 0
-  for xy, unit in context.allies.iteritems():
-    if unit.type == position.me.type:
-      continue
-    score += DistToPen(D[unit.x][unit.y])
-    cnt += 1
-
-  return float(score) / cnt
-
-
 def _TowardsTheGoalScore(context, position):
-  #if context.bonuses:
-  #  x = _BonusesScore(context, position)
-  #  if x is not None:
-  #    return x
-  bonuses_score = _BonusesScore(context, position)
+  hp_improvement = _HealEffect(context, position) * 1.2
+  items_bonus = _HoldItemsBonus(context, position) * .2
   next_corner = global_vars.NextCorner()
   dist = global_vars.distances[next_corner.x][next_corner.y][position.me.xy.x][position.me.xy.y]
-  return 100 - dist + bonuses_score
+  dist_score = 100 - dist
+  return hp_improvement + items_bonus + dist_score
 
 
 def _GetCellDangerScore(context, position):

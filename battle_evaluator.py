@@ -22,8 +22,8 @@ def EvaluatePosition(context, position):
     assert _LowHPBonus(context, 1) < params.KILL_EXTRA_PROFIT, _LowHPBonus(context, 1)
 
   points_scored = _PointsScored(context, position)
-  hp_improvement = _HealEffect(context, position)
-  items_bonus = _HoldItemsBonus(context, position) * .3
+  hp_improvement = _HealEffect(context, position) * 1.2
+  items_bonus = _HoldItemsBonus(context, position) * .2
   svd_bonus = 0 #_TotalSVDBonus(context, position)
   commander_bonus = 0 #_PositionBonus(context, position)
 

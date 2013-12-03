@@ -65,7 +65,7 @@ class Context(object):
     return map_util.MapIsOpen(self.map_name)
 
   @util.TimeMe
-  def FindDistances(self, where):
+  def FindDistances(self, where, maxd=10):
     data = util.Array2D(1000)
     q = [None] * (X * Y)
     q[0] = where
@@ -76,7 +76,7 @@ class Context(object):
       p = q[pos]
       pos += 1
       t = data[p.x][p.y] + 1
-      if t > 10:
+      if t > maxd:
         break
       for d in ALL_DIRS:
         p1 = PointAndDir(p, d)

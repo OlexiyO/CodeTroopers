@@ -5,7 +5,7 @@ import dfs
 
 class ScoutingSearcher(dfs.Searcher):
 
-  def _TryMoves(self, walked_to):
+  def _TryMoves(self, can_walk):
     for d in ALL_DIRS:
       p1 = PointAndDir(self.pos.me.xy, d)
-      self._Try(Walk(self.context, p1), walked_to)
+      self._Try(Walk(self.context, p1), can_walk=True)

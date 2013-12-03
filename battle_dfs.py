@@ -5,89 +5,87 @@ import dfs
 
 class BattleSearcher(dfs.Searcher):
 
-  def _TryMoves(self, walked_to):
-    restr = self._constraints[-1]
-    old_energizer = restr.can_energize
-    old_can_heal = None
-    old_shoot_at = None
-    old_grenade = None
-    old_shoot_at = old_shoot_at or set(zz for zz in restr.shoot_at)
-    old_medikit = None
+  def _TryMoves(self, can_walk):
+    self._TryMedikit()
+    self._TryGrenade()
+    self._TryHeal()
+    self._TryShoot()
 
-    if self.pos.holding_medikit:
-      old_medikit = list(restr.can_medikit)
-      for ally in self.context.allies.itervalues():
-        if restr.can_medikit[ally.type]:
-          self._Try(UseMedikit(self.context, ally.type), walked_to)
-          restr.can_medikit[ally.type] = False
+    self._Try(RaiseStance(self.context), can_walk=True)
+    self._Try(LowerStance(self.context), can_walk=False)
+    if self.pos.holding_field_ration and self.pos.action_points < self.pos.me.initial_action_points:
+      self._Try(Energizer(self.context), can_walk=True)
+    if can_walk:
+      self._TryWalk()
 
-    if self.pos.holding_grenade and self.pos.action_points >= self.context.game.grenade_throw_cost:
-      old_grenade = set(zz for zz in restr.grenade_at)
-      for xy in self.context.enemies:
-        if xy in restr.grenade_at:
-          continue
-        act = ThrowGrenade(self.context, xy)
-        if self._Try(act, walked_to):
-          restr.grenade_at.add(xy)
-
-        for d in ALL_DIRS:
-          p1 = PointAndDir(xy, d)
-          if p1 in restr.grenade_at:
-            continue
-          act = ThrowGrenade(self.context, p1)
-          if self._Try(act, walked_to):
-            restr.grenade_at.add(p1)
-
-    if self.pos.me.type == TrooperType.FIELD_MEDIC:
-      old_can_heal = list(restr.can_heal)
-      for ally in self.context.allies.itervalues():
-        if restr.can_heal[ally.type]:
-          act = FieldMedicHeal(self.context, ally.type)
-          if act.Allowed(self.pos):
-            restr.can_heal[ally.type] = False
-            extra = []
-            while True:
-              if not self._Try(act, walked_to, extra=extra):
-                break
-              extra += [act]
-
-    if restr.can_energize and self.pos.holding_field_ration:
-      # TODO: Force next move to be throwing grenade.
-      if ((self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points) or
-          (self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points)):
-        act = Energizer(self.context)
-        if act.Allowed(self.pos):
-          self._constraints.append(dfs.Constraints())
-          # Energizer drops all constraints
-          self._Try(act, walked_to)
-          del self._constraints[-1]
-        if self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
-          restr.can_energize = False
-
+  def _TryShoot(self):
     for xy in self.context.enemies:
-      T = self.pos.me.stance, xy
-      if T not in restr.shoot_at:
-        extra = []
-        act = Shoot(self.context, xy)
-        if act.Allowed(self.pos):
-          restr.shoot_at.add(T)
-          while True:
-            if not self._Try(act, walked_to, extra=extra):
-              break
-            extra += [act]
+      self._Try(Shoot(self.context, xy), can_walk=True)
 
-    for d in ALL_DIRS:
-      p1 = PointAndDir(self.pos.me.xy, d)
-      self._Try(Walk(self.context, p1), walked_to)
+  def _TryGrenade(self):
+    if not self.pos.holding_grenade or self.pos.action_points < self.context.game.grenade_throw_cost:
+      return
+    candidates = set(self.context.enemies.iterkeys())
+    for xy in self.context.enemies:
+      candidates.update(PointAndDir(xy, d) for d in ALL_DIRS)
+    for xy in candidates:
+      self._Try(ThrowGrenade(self.context, xy), can_walk=True)
 
-    self._Try(RaiseStance(self.context), walked_to)
-    self._Try(LowerStance(self.context), walked_to)
+  def _TryMedikit(self):
+    if not self.pos.holding_medikit:
+      return
+    for ally_type, hp in enumerate(self.pos.allies_hp):
+      ally = self.pos.GetUnit(ally_type)
+      if ally is None:
+        continue
+      delta = ally.maximal_hitpoints - hp
+      if delta > 0 and util.NextCell(self.pos.me.xy, ally.xy):
+        self._Try(UseMedikit(self.context, ally.type), can_walk=True)
 
-    restr.can_energize = old_energizer
-    restr.shoot_at = old_shoot_at
-    if old_can_heal is not None:
-      restr.can_heal = old_can_heal
-    if old_grenade is not None:
-      restr.grenade_at = old_grenade
-    if old_medikit is not None:
-      restr.can_medikit = old_medikit
+  def _TryHeal(self):
+    if self.pos.me.type != TrooperType.FIELD_MEDIC:
+      return
+    for ally_type, hp in enumerate(self.pos.allies_hp):
+      ally = self.pos.GetUnit(ally_type)
+      if ally is None:
+        continue
+      delta = ally.maximal_hitpoints - hp
+      if delta < 0 or not util.NextCell(self.pos.me.xy, ally.xy):
+        continue
+      hp_per_ap = (self.context.game.field_medic_heal_self_bonus_hitpoints
+                   if ally_type == self.pos.me.type else
+                   self.context.game.field_medic_heal_bonus_hitpoints)
+      max_heal_count = min((delta + hp_per_ap - 1) / hp_per_ap, self.pos.action_points)
+      if max_heal_count > 0:
+        self._Try([FieldMedicHeal(self.context, ally.type)] * max_heal_count, can_walk=True)
+
+  @util.TimeMe
+  def _TryWalk(self):
+    data = util.Array2D(0)
+    Q = [self.pos.me.xy]
+    LOA = [[]]
+    pos = 0
+    data[self.pos.me.xy.x][self.pos.me.xy.y] = self.pos.action_points
+    move_cost = util.MoveCost(self.context, self.pos.me.stance)
+    while pos < len(Q):
+      p = Q[pos]
+      A = LOA[pos]
+      pos += 1
+      points_left = data[p.x][p.y]
+      if points_left < move_cost:
+        continue
+      points_left -= move_cost
+
+      for d in ALL_DIRS:
+        p1 = PointAndDir(p, d)
+        if self.context.IsPassable(p1) and data[p1.x][p1.y] < points_left:
+          data[p1.x][p1.y] = points_left
+          if p1 not in self.context.allies and p1 not in self.context.enemies:
+            bonus = self.context.bonuses.get(p1, None)
+            actions = A + [Walk(self.context, p1)]
+            can_walk_after = bonus is not None and not self.pos.HasBonus(bonus.type) and self.pos.bonuses_present[p1]
+            self._Try(actions, can_walk=can_walk_after)
+            Q.append(p1)
+            LOA.append(A + [Walk(self.context, p1)])
+
+
