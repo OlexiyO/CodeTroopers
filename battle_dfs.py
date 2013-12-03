@@ -12,43 +12,14 @@ class BattleSearcher(dfs.Searcher):
     old_shoot_at = None
     old_grenade = None
     old_shoot_at = old_shoot_at or set(zz for zz in restr.shoot_at)
+    old_medikit = None
 
-    if self.pos.me.type == TrooperType.FIELD_MEDIC:
-      old_can_heal = list(restr.can_heal)
+    if self.pos.holding_medikit:
+      old_medikit = list(restr.can_medikit)
       for ally in self.context.allies.itervalues():
-        if restr.can_heal[ally.type]:
+        if restr.can_medikit[ally.type]:
           self._Try(UseMedikit(self.context, ally.type), walked_to)
-          restr.can_heal[ally.type] = False
-          act = FieldMedicHeal(self.context, ally.type)
-          extra = []
-          while True:
-            if not self._Try(act, walked_to, extra=extra):
-              break
-            extra += [act]
-
-
-    if restr.can_energize and self.pos.holding_field_ration:
-      # TODO: Force next move to be throwing grenade.
-      if ((self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points) or
-          (self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points)):
-        act = Energizer(self.context)
-        if act.Allowed(self.pos):
-          self._constraints.append(dfs.Constraints())
-          # Energizer drops all constraints
-          self._Try(act, walked_to)
-          del self._constraints[-1]
-        if self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
-          restr.can_energize = False
-
-    for xy in self.context.enemies:
-      if xy not in restr.shoot_at:
-        extra = []
-        restr.shoot_at.add(xy)
-        act = Shoot(self.context, xy)
-        while True:
-          if not self._Try(act, walked_to, extra=extra):
-            break
-          extra += [act]
+          restr.can_medikit[ally.type] = False
 
     if self.pos.holding_grenade and self.pos.action_points >= self.context.game.grenade_throw_cost:
       old_grenade = set(zz for zz in restr.grenade_at)
@@ -67,11 +38,48 @@ class BattleSearcher(dfs.Searcher):
           if self._Try(act, walked_to):
             restr.grenade_at.add(p1)
 
+    if self.pos.me.type == TrooperType.FIELD_MEDIC:
+      old_can_heal = list(restr.can_heal)
+      for ally in self.context.allies.itervalues():
+        if restr.can_heal[ally.type]:
+          act = FieldMedicHeal(self.context, ally.type)
+          if act.Allowed(self.pos):
+            restr.can_heal[ally.type] = False
+            extra = []
+            while True:
+              if not self._Try(act, walked_to, extra=extra):
+                break
+              extra += [act]
+
+    if restr.can_energize and self.pos.holding_field_ration:
+      # TODO: Force next move to be throwing grenade.
+      if ((self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points) or
+          (self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points)):
+        act = Energizer(self.context)
+        if act.Allowed(self.pos):
+          self._constraints.append(dfs.Constraints())
+          # Energizer drops all constraints
+          self._Try(act, walked_to)
+          del self._constraints[-1]
+        if self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
+          restr.can_energize = False
+
+    for xy in self.context.enemies:
+      T = self.pos.me.stance, xy
+      if T not in restr.shoot_at:
+        extra = []
+        act = Shoot(self.context, xy)
+        if act.Allowed(self.pos):
+          restr.shoot_at.add(T)
+          while True:
+            if not self._Try(act, walked_to, extra=extra):
+              break
+            extra += [act]
+
     for d in ALL_DIRS:
       p1 = PointAndDir(self.pos.me.xy, d)
       self._Try(Walk(self.context, p1), walked_to)
 
-    restr.shoot_at = set()
     self._Try(RaiseStance(self.context), walked_to)
     self._Try(LowerStance(self.context), walked_to)
 
@@ -81,4 +89,5 @@ class BattleSearcher(dfs.Searcher):
       restr.can_heal = old_can_heal
     if old_grenade is not None:
       restr.grenade_at = old_grenade
-
+    if old_medikit is not None:
+      restr.can_medikit = old_medikit

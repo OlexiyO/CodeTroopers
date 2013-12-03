@@ -65,6 +65,7 @@ class Position(object):
     else:
       assert False, 'Unknown bonus type %d' % btype
 
+  @util.TimeMe
   def GetUnit(self, utype):
     if utype == self.me.type:
       return self.me
@@ -77,6 +78,10 @@ class Action(object):
 
   def __init__(self, context):
     self.context = context
+
+  def __repr__(self):
+    good_items = {name: getattr(self, name) for name in dir(self) if name in ['where', 'who']}
+    return '%s %s' % (type(self).__name__, good_items)
 
   @util.TimeMe
   def Allowed(self, position):
@@ -169,7 +174,8 @@ class FieldMedicHeal(Action):
     self.who = who
 
   def _IsPossible(self, position):
-    assert position.me.type == TrooperType.FIELD_MEDIC
+    if position.me.type != TrooperType.FIELD_MEDIC:
+      return False
     target = position.GetUnit(self.who)
     loc = position.me.xy
     if loc != target.xy and not util.NextCell(loc, target.xy):

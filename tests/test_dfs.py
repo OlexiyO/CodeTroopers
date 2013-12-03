@@ -1,34 +1,59 @@
 import unittest
 from constants import Point
 import dfs
+import global_vars
 from model.ActionType import ActionType
 from model.Move import Move
 from tests.test_util import ContextFromFile
 
 
-class BattleTest(unittest.TestCase):
+class ReliabilityTest(unittest.TestCase):
 
   def testTimeout(self):
     strat, context = ContextFromFile('068_3_1_map05')
     move = Move()
     strat.RealMove(context, move)
+    dfs.PrintDebugInfo()
     self.assertEqual(move.action, ActionType.USE_MEDIKIT)
     self.assertEqual(move.x, 21)
     self.assertEqual(move.y, 12)
-    dfs.PrintDebugInfo()
 
+  def testTimeout2(self):
+    strat, context = ContextFromFile('040_2_3_default')
+    move = Move()
+    strat.RealMove(context, move)
+    dfs.PrintDebugInfo()
+    self.assertEqual(move.action, ActionType.MOVE)
+    self.assertEqual(move.x, 3)
+    self.assertEqual(move.y, 3)
+
+  def testBreakDown(self):
+    strat, context = ContextFromFile('533_24_3_default')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.END_TURN)
+
+
+class BattleTest(unittest.TestCase):
   def testRunAwayFromUnknown(self):
     # In this case, we just got in touch with enemy -- and it makes sense to run away because it is too dangerous.
     strat, context = ContextFromFile('088_4_2_map04')
     move = Move()
     strat.RealMove(context, move)
-    self.assertNotEqual(move.action, ActionType.SHOOT)
+    # Energizer, shoot, walk away
+    self.assertEqual(move.action, ActionType.EAT_FIELD_RATION)
 
   def testSniperLowerStance(self):
     strat, context = ContextFromFile('057_3_3_map05')
     move = Move()
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.LOWER_STANCE)
+
+  def testHideDontFight(self):
+    strat, context = ContextFromFile('142_6_2_cheeser')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.SHOOT)
 
   def testShootEnemy(self):
     strat, context = ContextFromFile('069_4_3_map02')
@@ -42,6 +67,8 @@ class BattleTest(unittest.TestCase):
     strat, context = ContextFromFile('058_2_1_map04')
     move = Move()
     strat.RealMove(context, move)
+    print global_vars.FORCED_ACTIONS
+    print move.x, move.y
     self.assertEqual(move.action, ActionType.MOVE)
     self.assertEqual(move.x, 22)
     self.assertEqual(move.y, 6)
@@ -60,21 +87,30 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 13)
 
+
+class FightingTest(unittest.TestCase):
   def testFighting(self):
     strat, context = ContextFromFile('040_2_2_map05')
     move = Move()
     strat.RealMove(context, move)
+    # The plan for real: step back to (24, 4) -- so the opponent can not see us; lower stance, shoot.
     self.assertEqual(move.action, ActionType.MOVE)
     self.assertEqual(move.x, 24)
-    self.assertEqual(move.y, 6)
+    self.assertEqual(move.y, 4)
 
+  def testFighting2(self):
     strat, context = ContextFromFile('041_2_2_map05')
+    print 'ENEmei'
+    print context.enemies
+    print context.allies
     move = Move()
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.MOVE)
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 7)
 
+  def testThrowGrenadeOptimally(self):
+    """Now we see all opponents -- so we throw grenade to the crowd."""
     strat, context = ContextFromFile('042_2_2_map05')
     move = Move()
     strat.RealMove(context, move)
@@ -93,7 +129,6 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.action, ActionType.THROW_GRENADE)
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 13)
-    dfs.PrintDebugInfo()
 
 
 class ScoutingTest(unittest.TestCase):

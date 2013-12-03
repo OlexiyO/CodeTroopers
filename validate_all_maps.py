@@ -4,7 +4,7 @@ import tempfile
 from threading import Thread
 
 
-NUM_GAMES = 15
+NUM_GAMES = 10
 random_moves = 2
 
 def DoValidate(port, map_name, output_file):

@@ -99,6 +99,8 @@ def StanceForRunning(context, trooper):
 
 @util.TimeMe
 def ScoutingMove(context, move):
+  if context.me.action_points < 2:
+    return
   if context.me.xy == global_vars.NextCorner():
     global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + 1) % 4
   if TryHeal(context, move):

@@ -1,4 +1,5 @@
 from actions import *
+import battle_simulator
 import global_vars
 import util
 
@@ -20,6 +21,7 @@ NEXT_BANNED_MOVES = {
 class Constraints(object):
   def __init__(self):
     self.can_heal = [True] * TOTAL_UNIT_TYPES
+    self.can_medikit = [True] * TOTAL_UNIT_TYPES
     self.shoot_at = set()
     self.can_energize = True
     self.visited = set()
@@ -33,6 +35,7 @@ class Searcher(object):
     self.evaluate_fn = evaluate_fn
     self.pos = Position(context)
     old_me, context.me = context.me, None
+    battle_simulator.Precompute(context, self.pos)
     # Eval position as it was end of turn.
     ap = self.pos.action_points
     self.pos.action_points = 0
@@ -44,11 +47,12 @@ class Searcher(object):
     self._constraints = [Constraints()]
     self.moves = [None] * 25
     self.index = 0
-    self._DFS([])
+    self._DFS([self.pos.me.xy])
     M.append((self.total_count, global_vars.TURN_INDEX))
     context.me = old_me
     best_act = self.bestActions[0]
     best_act.SetMove(self.pos, move)
+    print 'Plan:', self.bestActions
     if isinstance(best_act, (UseMedikit, FieldMedicHeal, LowerStance, RaiseStance, Energizer)):
       global_vars.FORCED_ACTIONS, global_vars.FORCED_TYPE = self.bestActions[1:], self.pos.me.type
     else:
@@ -76,7 +80,7 @@ class Searcher(object):
     if isinstance(act, banned_moves):
       return False
 
-    to_revert = []
+    to_undo = []
     success = True
     where_moves = walked_to
 
@@ -84,7 +88,7 @@ class Searcher(object):
       if not act.Allowed(self.pos):
         success = False
         break
-      to_revert.append(act.Apply(self.pos))
+      to_undo.append((act, act.Apply(self.pos)))
       self.moves[self.index] = act
       self.index += 1
       global CALLS
@@ -96,7 +100,7 @@ class Searcher(object):
     if success:
       self._DFS(where_moves)
 
-    for info in reversed(to_revert):
+    for act, info in reversed(to_undo):
       self.index -= 1
       act.Undo(self.pos, info)
     return success

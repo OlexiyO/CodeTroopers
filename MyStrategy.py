@@ -185,6 +185,7 @@ class MyStrategy(object):
               move.x, move.y = x, y
               bd = value
 
+  @util.TimeMe
   def move(self, me, world, game, move):
     context = Context(me, world, game)
     self.MaybeSaveLog(context)
@@ -224,6 +225,7 @@ class MyStrategy(object):
 
   def RealMove(self, context, move):
     if global_vars.FIRST_MOVES_RANDOM > context.world.move_index:
+      '''  # TODO: Change this when this strategy is used as old.
       for d in range(20):
         d1 = ALL_DIRS[d % 4]
         p1 = PointAndDir(context.me.xy, d1)
@@ -231,13 +233,18 @@ class MyStrategy(object):
           move.action = ActionType.MOVE
           move.x, move.y = p1.x, p1.y
           return
+      '''
+      return
 
     if global_vars.FORCED_ACTIONS and context.me.type == global_vars.FORCED_TYPE:
+      print 'Using pre-computed action!'
       act = global_vars.FORCED_ACTIONS[0]
       global_vars.FORCED_ACTIONS = global_vars.FORCED_ACTIONS[1:]
       pos = Position(context)
       act.SetMove(pos, move)
       return
+    global_vars.FORCED_ACTIONS = []
+    global_vars.FORCED_TYPE = None
     if context.enemies:
       import time
       t0 = time.time()
@@ -246,7 +253,6 @@ class MyStrategy(object):
       util.MOVE_TIMES[context.world.move_index] = util.MOVE_TIMES.get(context.world.move_index, 0) + (t1 - t0)
     else:
       scouting.ScoutingMove(context, move)
-
 
   def FillCornersOrder(self, context):
     """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""

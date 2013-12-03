@@ -208,9 +208,9 @@ def CanShoot(context, who, target):
   return IsVisible(context, ShootingRange(context, who), who.xy.x, who.xy.y, who.stance, target.xy.x, target.xy.y, target.stance)
 
 
-def Array2D(value):
-  array_1d = [value] * Y
-  return [list(array_1d) for _ in range(X)]
+def Array2D(value, x=X, y=Y):
+  array_1d = [value] * y
+  return [list(array_1d) for _ in range(x)]
 
 
 def DPS(unit):

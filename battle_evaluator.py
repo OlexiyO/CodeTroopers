@@ -23,12 +23,12 @@ def EvaluatePosition(context, position):
 
   points_scored = _PointsScored(context, position)
   hp_improvement = _HealEffect(context, position)
-  items_bonus = _HoldItemsBonus(context, position) * .25
+  items_bonus = _HoldItemsBonus(context, position) * .3
   svd_bonus = 0 #_TotalSVDBonus(context, position)
   commander_bonus = 0 #_PositionBonus(context, position)
 
   min_ap_bonus = max(0, position.action_points - 2) * .1
-  prediction_score = battle_simulator.PredictBattle(context, position) * .5
+  prediction_score = battle_simulator.PredictBattle(context, position)
   return points_scored + hp_improvement + commander_bonus + svd_bonus + items_bonus + prediction_score + min_ap_bonus
 
 
