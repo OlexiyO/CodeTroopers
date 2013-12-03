@@ -11,17 +11,40 @@ FIRST_MOVES_RANDOM = 0
 UNITS_IN_GAME = None
 UNITS_ORDER = []
 ORDER_OF_CORNERS = None
-NEXT_CORNER = 3
+ITERATION_ORDER = 1  # 3 == First along long wall
+NEXT_CORNER = ITERATION_ORDER
+NEXT_GOAL = None
 
 MOVE_INDEX = None
 FORCED_ACTIONS = []
+LAST_SEEN_ENEMIES = 0
 
 
-def NextCorner():
+def NextGoal():
+  if NEXT_GOAL is not None:
+    return NEXT_GOAL
   return ORDER_OF_CORNERS[NEXT_CORNER]
 
 SNIPER_SHOOTING_RANGE = 10
 POSITION_AT_START_MOVE = None
 
+
 def ManhDist(A, B):
   return distances[A.x][A.y][B.x][B.y]
+
+
+def CheckIfAchievedGoal(xy):
+  global NEXT_CORNER, NEXT_GOAL
+  if xy == NextGoal():
+    if NEXT_GOAL is not None:
+      NEXT_GOAL = None
+    else:
+      NEXT_CORNER = (NEXT_CORNER + ITERATION_ORDER) % 4
+    print 'NEXT', NextGoal()
+
+
+def UpdateSeenEnemies(context):
+  global NEXT_GOAL, LAST_SEEN_ENEMIES
+  if context.enemies:
+    NEXT_GOAL = context.enemies.keys()[0]
+    LAST_SEEN_ENEMIES = context.world.move_index

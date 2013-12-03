@@ -100,9 +100,8 @@ def StanceForRunning(context, trooper):
 @util.TimeMe
 def ScoutingMove(context, move):
   # Leave 2 steps.
-  if context.me.xy == global_vars.NextCorner():
-    global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + 3) % 4
-
+  global_vars.CheckIfAchievedGoal(context.me.xy)
+  #if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - 5:
   if context.me.action_points >= 2:
     if context.me.stance < StanceForRunning(context, context.me):
       move.action = ActionType.RAISE_STANCE

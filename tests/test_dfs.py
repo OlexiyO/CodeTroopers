@@ -117,7 +117,9 @@ class FightingTest(unittest.TestCase):
     strat, context = ContextFromFile('042_2_2_map05')
     move = Move()
     strat.RealMove(context, move)
-    self.assertEqual(move.action, ActionType.EAT_FIELD_RATION)
+    self.assertEqual(move.action, ActionType.MOVE)
+    self.assertEqual(move.x, 24)
+    self.assertEqual(move.y, 8)
 
     strat, context = ContextFromFile('043_2_2_map05')
 

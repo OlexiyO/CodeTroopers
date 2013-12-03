@@ -51,6 +51,10 @@ class MyStrategy(object):
         if ally.stance == TrooperStance.STANDING:
           assert ally.shooting_range == global_vars.SNIPER_SHOOTING_RANGE, (ally.shooting_range, global_vars.SNIPER_SHOOTING_RANGE)
     self.FillCornersOrder(context)
+    p1, p2 = global_vars.ORDER_OF_CORNERS[0], global_vars.ORDER_OF_CORNERS[3]
+    p3 = Point((p1.x*2 + p2.x) / 3, (p1.y*2 + p2.y) / 3)
+    global_vars.NEXT_GOAL = ClosestEmptyCell(context, p3)
+    print 'PPPP', p3, global_vars.NEXT_GOAL
     global_vars.UNITS_IN_GAME = len([t for t in context.world.troopers if t.teammate])
     if global_vars.STDOUT_LOGGING:
       print 'Start from', context.me.x, context.me.y
@@ -124,6 +128,7 @@ class MyStrategy(object):
       res[xy] = enemy
     context.enemies = res
     ENEMIES = res
+    global_vars.UpdateSeenEnemies(context)
 
   def AdjustEnemiesToDmg(self, xy, dmg):
     global ENEMIES
@@ -221,6 +226,7 @@ class MyStrategy(object):
     global_vars.TURN_INDEX += 1
 
   def CombatMove(self, context, move):
+    print 'Battle!'
     searcher = BattleSearcher()
     return searcher.DoSearch(battle_evaluator.EvaluatePosition, context, move)
 
@@ -260,15 +266,15 @@ class MyStrategy(object):
     me = context.me
     global_vars.ORDER_OF_CORNERS = []
     x = 0 if me.x < X / 2 else X - 1
-    y = 0 if me.y < (Y / 2) else Y - 1
+    y = 0 if me.y < Y / 2 else Y - 1
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-    y = 0 if y > (Y / 2) else Y - 1  # Switch y
+    y = 0 if y > Y / 2 else Y - 1  # Switch y
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
     x = 0 if me.x > X / 2 else X - 1
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-    y = 0 if y > (Y / 2) else Y - 1  # Switch y
+    y = 0 if y > Y / 2 else Y - 1  # Switch y
     global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
-    global_vars.NEXT_CORNER = 3
+    global_vars.NEXT_CORNER = global_vars.ITERATION_ORDER
 
 
 def ClosestEmptyCell(context, to):

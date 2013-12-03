@@ -1,3 +1,4 @@
+import itertools
 from actions import *
 import battle_simulator
 from constants import PointAndDir, ALL_DIRS
@@ -14,7 +15,7 @@ NEXT_BANNED_MOVES = {
   RaiseStance: (LowerStance, ThrowGrenade, FieldMedicHeal, UseMedikit),
   Walk: (RaiseStance, ),
   ThrowGrenade: (Shoot, UseMedikit, FieldMedicHeal),
-  Shoot: (UseMedikit, FieldMedicHeal),
+  Shoot: (UseMedikit, FieldMedicHeal, Shoot),
   FieldMedicHeal: (),
   UseMedikit: (),
   Energizer: (),
@@ -105,7 +106,11 @@ class Searcher(object):
       if ally is None:
         continue
       delta = ally.maximal_hitpoints - hp
-      if delta > 0 and (util.NextCell(self.pos.me.xy, ally.xy) or ally_type == self.pos.me.type):
+      if delta <= 0:
+        continue
+      if util.NextCell(self.pos.me.xy, ally.xy):
+        self._Try(UseMedikit(self.context, ally.type), can_walk=True)
+      elif ally_type == self.pos.me.type:
         self._Try(UseMedikit(self.context, ally.type), can_walk=True)
 
   def _TryHeal(self):
@@ -116,9 +121,14 @@ class Searcher(object):
       if ally is None:
         continue
       delta = ally.maximal_hitpoints - hp
-      if delta < 0:
+      if delta <= 0:
         continue
-      if util.NextCell(self.pos.me.xy, ally.xy) or ally_type == self.pos.me.type:
+      time_to_heal = False
+      if util.NextCell(self.pos.me.xy, ally.xy):
+        time_to_heal = True
+      elif ally_type == self.pos.me.type:
+        time_to_heal = (self.index == 0 or isinstance(self.PrevMove(), Energizer))
+      if time_to_heal:
         hp_per_ap = (self.context.game.field_medic_heal_self_bonus_hitpoints
                      if ally_type == self.pos.me.type else
                      self.context.game.field_medic_heal_bonus_hitpoints)
@@ -178,14 +188,29 @@ class BattleSearcher(Searcher):
 
     self._Try(RaiseStance(self.context), can_walk=True)
     self._Try(LowerStance(self.context), can_walk=False)
-    if self.pos.holding_field_ration and self.pos.action_points < self.pos.me.initial_action_points:
-      self._Try(Energizer(self.context), can_walk=True)
+    if self.pos.holding_field_ration:
+      if self.pos.action_points + self.context.game.field_ration_bonus_action_points < self.pos.me.initial_action_points:
+        self._Try(Energizer(self.context), can_walk=True)
+      elif self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points:
+        # Next step must be grenade.
+        self._Try(Energizer(self.context), can_walk=False)
     if can_walk:
       self._TryWalk()
 
   def _TryShoot(self):
-    for xy in self.context.enemies:
-      self._Try(Shoot(self.context, xy), can_walk=True)
+    options = [xy for xy in self.context.enemies if Shoot(self.context, xy).Allowed(self.pos)]
+    if self.index > 0 and isinstance(self.PrevMove(), RaiseStance):
+      self.pos.me.stance -= 1
+      # Filter out whoever we could shot on the last turn.
+      options = [xy for xy in options if not Shoot(self.context, xy).Allowed(self.pos)]
+      self.pos.me.stance += 1
+    options = sorted(options)
+    num_shots = self.pos.action_points / self.pos.me.shoot_cost
+    if not options or num_shots == 0:
+      return
+    for n in range(1, num_shots + 1):
+      for actions in itertools.combinations_with_replacement(options, n):
+        self._Try([Shoot(self.context, xy) for xy in actions], can_walk=True)
 
   def _TryGrenade(self):
     if not self.pos.holding_grenade or self.pos.action_points < self.context.game.grenade_throw_cost:

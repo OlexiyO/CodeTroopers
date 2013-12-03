@@ -10,9 +10,9 @@ import util
 
 def EvaluatePosition(context, position):
   if global_vars.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE) > 3:
-    return -100000
+    return -10000
   M = max(global_vars.ManhDist(position.me.xy, xy) for xy in context.allies)
-  too_far_penalty = max(0, (M - params.TOO_FAR_FROM_HERD)) * -100000
+  too_far_penalty = max(0, (M - params.TOO_FAR_FROM_HERD)) * -10000
   benefit_score = _TowardsTheGoalScore(context, position)
   safety_score = 0 #_SafetyScore(context, position)
   action_points_score = 0 #position.action_points * .1
@@ -63,8 +63,8 @@ def _BonusesScore(context, position):
 def _TowardsTheGoalScore(context, position):
   hp_improvement = _HealEffect(context, position) * 1.2
   items_bonus = _HoldItemsBonus(context, position)
-  next_corner = global_vars.NextCorner()
-  dist = global_vars.distances[next_corner.x][next_corner.y][position.me.xy.x][position.me.xy.y]
+  next_goal = global_vars.NextGoal()
+  dist = global_vars.distances[next_goal.x][next_goal.y][position.me.xy.x][position.me.xy.y]
   dist_score = 100 - dist
   return hp_improvement + items_bonus + dist_score * .5
 
@@ -97,7 +97,7 @@ def _SafetyScore(context, position):
 def _AttackingOrderPenalty(context, position):
   discount = 1 if map_util.RelaxAttackingOrder(context) else 0
 
-  goal = global_vars.NextCorner()
+  goal = global_vars.NextGoal()
   safety_dist = global_vars.distances[goal.x][goal.y]
   #safety_dist = global_vars.distances[officer.x][officer.y]
   my_attacking_order = params.ATTACKING_ORDER.index(position.me.type)
