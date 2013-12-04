@@ -69,27 +69,6 @@ def MaybeHeal(position, context, move):
     return RunTo(where, context, move)
 
 
-def TryHeal(context, move):
-  # TODO: Better heal between moves.
-  position = Position(context)
-  me = position.me
-  if any(ally.type == TrooperType.FIELD_MEDIC for ally in context.allies.itervalues()):
-    if me.type == TrooperType.FIELD_MEDIC:
-      return MaybeHeal(position, context, move)
-    else:
-      if me.maximal_hitpoints > me.hitpoints:
-        for p, ally in context.allies.iteritems():
-          if ally.type == TrooperType.FIELD_MEDIC:
-            return RunTo(p, context, move)
-      else:
-        return False
-  else:
-    if MaybeMedikit(position, context, move):
-      return True
-
-  return False
-
-
 def StanceForRunning(context, trooper):
   #if context.MapIsOpen() and trooper.type == TrooperType.SNIPER:
   #  return TrooperStance.KNEELING
@@ -100,8 +79,8 @@ def StanceForRunning(context, trooper):
 @util.TimeMe
 def ScoutingMove(context, move):
   # Leave 2 steps.
-  global_vars.CheckIfAchievedGoal(context.me.xy)
-  #if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - 5:
+  CheckIfAchievedGoal(context)
+  # if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - 4:
   if context.me.action_points >= 2:
     if context.me.stance < StanceForRunning(context, context.me):
       move.action = ActionType.RAISE_STANCE
@@ -158,3 +137,14 @@ def RunTo(where, context, move):
     return True
 
   return False
+
+
+def CheckIfAchievedGoal(context):
+  g = global_vars.NextGoal()
+  xy = context.me.xy
+  if util.IsVisible(context, 4, xy.x, xy.y, TrooperStance.PRONE, g.x, g.y, TrooperStance.PRONE):
+    if global_vars.NEXT_GOAL is not None:
+      global_vars.NEXT_GOAL = None
+    else:
+      global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + global_vars.ITERATION_ORDER) % 4
+    print 'NEXT', global_vars.NextGoal()

@@ -140,12 +140,13 @@ def EnemyRuns(context, position):
     else:
       # This unit runs away. We can't shoot it.
       simulator.enemies_hp[turn.unit] = 0
+  if not simulator.i_shoot_them:
+    gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
   return gained, 0
 
 
 @util.TimeMe
 def PredictBattle(context, position):
-  # TODO: More complex stuff (so, (25, 0) is better than (50, 25))
   enemy_sees_us, gained, lost = EnemyFights(context, position)
   they_run, _ = EnemyRuns(context, position)
   safety_bonus = 0 if enemy_sees_us else params.THEY_DONT_SEE_US_BONUS

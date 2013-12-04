@@ -15,7 +15,7 @@ ITERATION_ORDER = 1  # 3 == First along long wall
 NEXT_CORNER = ITERATION_ORDER
 NEXT_GOAL = None
 
-MOVE_INDEX = None
+FORCED_MOVE_ID = None
 FORCED_ACTIONS = []
 LAST_SEEN_ENEMIES = 0
 
@@ -31,16 +31,6 @@ POSITION_AT_START_MOVE = None
 
 def ManhDist(A, B):
   return distances[A.x][A.y][B.x][B.y]
-
-
-def CheckIfAchievedGoal(xy):
-  global NEXT_CORNER, NEXT_GOAL
-  if xy == NextGoal():
-    if NEXT_GOAL is not None:
-      NEXT_GOAL = None
-    else:
-      NEXT_CORNER = (NEXT_CORNER + ITERATION_ORDER) % 4
-    print 'NEXT', NextGoal()
 
 
 def UpdateSeenEnemies(context):

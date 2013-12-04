@@ -194,9 +194,9 @@ class MyStrategy(object):
   @util.TimeMe
   def move(self, me, world, game, move):
     context = Context(me, world, game)
-    self.MaybeSaveLog(context)
     if not global_vars.INITIALIZED:
       self.Init(context)
+    self.MaybeSaveLog(context)
     self._PreMove(context)
     move.action = ActionType.END_TURN
     self.RealMove(context, move)
@@ -226,7 +226,7 @@ class MyStrategy(object):
     global_vars.TURN_INDEX += 1
 
   def CombatMove(self, context, move):
-    print 'Battle!'
+    print 'Battle! Enemies:', context.enemies
     searcher = BattleSearcher()
     return searcher.DoSearch(battle_evaluator.EvaluatePosition, context, move)
 
@@ -241,25 +241,26 @@ class MyStrategy(object):
           move.x, move.y = p1.x, p1.y
           return
       '''
-      return
+      return None
 
-    if global_vars.FORCED_ACTIONS and context.world.move_index == global_vars.MOVE_INDEX:
+    if global_vars.FORCED_ACTIONS and (context.world.move_index, context.me.type) == global_vars.FORCED_MOVE_ID:
       print 'Using pre-computed action!'
       act = global_vars.FORCED_ACTIONS[0]
       global_vars.FORCED_ACTIONS = global_vars.FORCED_ACTIONS[1:]
       pos = Position(context)
       act.SetMove(pos, move)
-      return
+      return global_vars.FORCED_ACTIONS
     global_vars.FORCED_ACTIONS = []
     global_vars.MOVE_INDEX = None
     if context.enemies:
       import time
       t0 = time.time()
-      self.CombatMove(context, move)
+      plan = self.CombatMove(context, move)
       t1 = time.time()
       util.MOVE_TIMES[context.world.move_index] = util.MOVE_TIMES.get(context.world.move_index, 0) + (t1 - t0)
+      return plan
     else:
-      scouting.ScoutingMove(context, move)
+      return scouting.ScoutingMove(context, move)
 
   def FillCornersOrder(self, context):
     """Finds another corner to run to at the start of the game (second closest corner to this trooper)."""

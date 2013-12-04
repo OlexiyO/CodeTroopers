@@ -9,17 +9,19 @@ import util
 
 
 def EvaluatePosition(context, position):
-  if global_vars.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE) > 3:
-    return -10000
-  M = max(global_vars.ManhDist(position.me.xy, xy) for xy in context.allies)
-  too_far_penalty = max(0, (M - params.TOO_FAR_FROM_HERD)) * -10000
-  benefit_score = _TowardsTheGoalScore(context, position)
-  safety_score = 0 #_SafetyScore(context, position)
-  action_points_score = 0 #position.action_points * .1
-  if safety_score >= 0:
-    return benefit_score + action_points_score + too_far_penalty
-  else:
-    return safety_score + action_points_score + too_far_penalty
+  too_far = max(3, global_vars.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
+  walk_too_far = -5000 * (too_far - 3)
+
+  original_manh_dist = max(global_vars.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
+  current_manh_dist = max(global_vars.ManhDist(position.me.xy, xy) for xy in context.allies)
+  original_penalty = max(0, (original_manh_dist - params.TOO_FAR_FROM_HERD))
+  current_penalty = max(0, (current_manh_dist - params.TOO_FAR_FROM_HERD))
+  MAX_WIN_PER_TURN = 3
+  gain = min(original_penalty - current_penalty, MAX_WIN_PER_TURN)
+  too_far_penalty = (MAX_WIN_PER_TURN - gain) * -10000
+
+  benefit_score = _BenefitScore(context, position)
+  return benefit_score + too_far_penalty + walk_too_far
 
 
 def NeedBonus(context, position, bt):
@@ -60,7 +62,7 @@ def _BonusesScore(context, position):
   return sum(score * mult for score, mult in zip(scores, mults))
 
 
-def _TowardsTheGoalScore(context, position):
+def _BenefitScore(context, position):
   hp_improvement = _HealEffect(context, position) * 1.2
   items_bonus = _HoldItemsBonus(context, position)
   next_goal = global_vars.NextGoal()

@@ -37,6 +37,7 @@ class Searcher(object):
     self.context = context
     self.total_count = 0
     self.moves = [None] * 25
+    self.to_undo = [None] * 25
     self.index = 0
     self._DFS(can_walk=True)
     M.append((self.total_count, global_vars.TURN_INDEX))
@@ -44,10 +45,14 @@ class Searcher(object):
     best_act = self.bestActions[0]
     best_act.SetMove(self.pos, move)
     print 'Plan:', self.bestActions
-    if isinstance(best_act, (UseMedikit, FieldMedicHeal, LowerStance, Energizer)):
-      global_vars.FORCED_ACTIONS, global_vars.MOVE_INDEX = self.bestActions[1:], self.context.world.move_index
-    else:
-      global_vars.FORCED_ACTIONS, global_vars.MOVE_INDEX = [], None
+    global_vars.FORCED_ACTIONS = []
+    global_vars.FORCED_MOVE_ID = context.world.move_index, self.pos.me.type
+    for n, act in enumerate(self.bestActions):
+      if n > 0:
+        if isinstance(self.bestActions[n - 1], (UseMedikit, FieldMedicHeal, LowerStance, Energizer, ThrowGrenade, Shoot)):
+          global_vars.FORCED_ACTIONS.append(act)
+        else:
+          break
     return self.bestActions
 
   def PrevMove(self):
@@ -61,16 +66,17 @@ class Searcher(object):
     if isinstance(a0, banned_moves):
       return False
 
-    to_undo = []
     success = True
 
+    applied = 0
     for act in actions:
       if not act.Allowed(self.pos):
         success = False
         break
-      to_undo.append((act, act.Apply(self.pos)))
       self.moves[self.index] = act
+      self.to_undo[self.index] = act.Apply(self.pos)
       self.index += 1
+      applied += 1
       global CALLS
       CALLS[type(act)] = CALLS.get(type(act), 0) + 1
       if not success:
@@ -79,9 +85,9 @@ class Searcher(object):
     if success:
       self._DFS(can_walk=can_walk)
 
-    for act, info in reversed(to_undo):
+    for n in range(applied):
       self.index -= 1
-      act.Undo(self.pos, info)
+      self.moves[self.index].Undo(self.pos, self.to_undo[self.index])
     return success
 
   def _DFS(self, can_walk):
@@ -90,7 +96,6 @@ class Searcher(object):
       score = self.evaluate_fn(self.context, self.pos)
       if score > self.bestScore:
         self.bestScore, self.bestActions = score, list(self.moves[:self.index])
-        #self.evaluate_fn(self.context, self.pos) # For debug
 
     if self.pos.action_points > 0:
       self._TryMoves(can_walk=can_walk)
@@ -138,7 +143,7 @@ class Searcher(object):
 
   @util.TimeMe
   def _TryWalk(self):
-    data = util.Array2D(0)
+    data = util.Array2D(-1)
     Q = [self.pos.me.xy]
     LOA = [[]]
     pos = 0
@@ -188,14 +193,28 @@ class BattleSearcher(Searcher):
 
     self._Try(RaiseStance(self.context), can_walk=True)
     self._Try(LowerStance(self.context), can_walk=False)
-    if self.pos.holding_field_ration:
-      if self.pos.action_points + self.context.game.field_ration_bonus_action_points < self.pos.me.initial_action_points:
-        self._Try(Energizer(self.context), can_walk=True)
-      elif self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points:
-        # Next step must be grenade.
-        self._Try(Energizer(self.context), can_walk=False)
+    self._TryEnergizer()
     if can_walk:
       self._TryWalk()
+
+  def _TryEnergizer(self):
+    if not self.pos.holding_field_ration or self.pos.action_points >= self.pos.me.initial_action_points:
+      return
+    if self.index > 0:
+      prev_move = self.PrevMove()
+      if not isinstance(prev_move, (Energizer, Walk)):
+        data = self.to_undo[self.index - 1]
+        prev_ap = data[0] if isinstance(data, tuple) else data
+        # Could have used energizer last turn
+        if prev_ap + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
+          return
+
+    # Apply only if we'll get full benefit.
+    if self.pos.action_points + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
+      self._Try(Energizer(self.context), can_walk=True)
+    elif self.pos.holding_grenade and self.pos.action_points < self.pos.me.initial_action_points:
+      # Next step must be grenade.
+      self._Try(Energizer(self.context), can_walk=False)
 
   def _TryShoot(self):
     options = [xy for xy in self.context.enemies if Shoot(self.context, xy).Allowed(self.pos)]
@@ -217,7 +236,10 @@ class BattleSearcher(Searcher):
       return
     candidates = set(self.context.enemies.iterkeys())
     for xy in self.context.enemies:
-      candidates.update(PointAndDir(xy, d) for d in ALL_DIRS)
+      for d in ALL_DIRS:
+        p1 = PointAndDir(xy, d)
+        if self.context.IsInside(p1):
+          candidates.add(p1)
     for xy in candidates:
       self._Try(ThrowGrenade(self.context, xy), can_walk=True)
 

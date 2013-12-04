@@ -4,7 +4,7 @@ import tempfile
 from threading import Thread
 
 
-NUM_GAMES = 10
+NUM_GAMES = 12
 random_moves = 2
 
 def DoValidate(port, map_name, output_file):
@@ -15,21 +15,25 @@ def DoValidate(port, map_name, output_file):
        cwd='C:/Coding/CodeTroopers/src',
        stdout=fout)
 
-port = 35000
+port = 33000
 threads = []
 data = []
-for map_name in ['default', 'map01', 'cheeser', 'map02', 'map03', 'map04', 'map05']:
+for map_name in ['default', 'map01', 'cheeser', 'map02', 'map03', 'map04', 'map05', 'map06', 'fefer']:
   filepath = tempfile.mktemp(prefix='C:/Coding/CodeTroopers/tmp/')
   print filepath
   t = Thread(target=DoValidate, kwargs={'port': port, 'map_name': map_name, 'output_file': filepath})
   threads.append(t)
   data.append((map_name, filepath))
-  port += 1000
+  port += 100
 
-for t in threads:
-  t.start()
-for t in threads:
-  t.join()
+T = len(threads)
+STEP = 3
+for n in range(0, T, STEP):
+  tt = threads[n: n + STEP]
+  for t in tt:
+    t.start()
+  for t in tt:
+    t.join()
 
 print 'Random moves:', random_moves
 for map_name, fname in data:

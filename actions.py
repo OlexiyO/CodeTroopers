@@ -330,7 +330,7 @@ class ThrowGrenade(BaseAction):
     return self.context.game.grenade_throw_cost
 
   def _IsPossible(self, position):
-    return position.holding_grenade and util.WithinRange(self.where, position.me.xy, self.context.game.grenade_throw_range)
+    return self.context.IsInside(self.where) and position.holding_grenade and util.WithinRange(self.where, position.me.xy, self.context.game.grenade_throw_range)
 
   def SetMove(self, position, move):
      move.action = ActionType.THROW_GRENADE

@@ -40,6 +40,22 @@ class ReliabilityTest(unittest.TestCase):
 
 
 class BattleTest(unittest.TestCase):
+
+  def testRunTowardsEnemy(self):
+    strat, context = ContextFromFile('065_3_2_map05')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.MOVE)
+    self.assertEqual(Point(move.x, move.y), Point(23, 2))
+
+  def testRunToProvideHelp(self):
+    # Two guys are far away -- so they have to run to help the other 2.
+    strat, context = ContextFromFile('016_0_3_map06')
+    move = Move()
+    plan = scouting.ScoutingMove(context, move)
+    self.assertTrue(isinstance(plan[-1], actions.Walk))
+    self.assertTrue(any(isinstance(x, actions.Walk) and x.where == Point(24, 1) for x in plan))
+
   def testRunAwayFromUnknown(self):
     # In this case, we just got in touch with enemy -- and it makes sense to run away because it is too dangerous.
     strat, context = ContextFromFile('088_4_2_map04')
@@ -79,12 +95,16 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.y, 6)
 
   def testShootOrLowerStance(self):
+    # TODO: Make sure we drop to position where they can not shoot us.
     # Lower stance -> shoot -> lower stance (hide)
     # Or: shoot, energy, shoot, walk away
     strat, context = ContextFromFile('022_1_2_map03')
     move = Move()
-    strat.RealMove(context, move)
-    self.assertEqual(move.action, ActionType.LOWER_STANCE)
+    plan = strat.CombatMove(context, move)
+    #[Shoot {'where': Point(x=24, y=13)}, Energizer {}, Shoot {'where': Point(x=24, y=13)}, Walk {'where': Point(x=24, y=5)}]
+    if move.action != ActionType.LOWER_STANCE:
+      self.assertIsInstance(plan[-1], actions.Walk)
+      self.assertEqual(plan[-1].where, Point(24, 5))
 
     strat, context = ContextFromFile('023_1_2_map03')
     move = Move()
@@ -139,34 +159,43 @@ class FightingTest(unittest.TestCase):
 
 class ScoutingTest(unittest.TestCase):
 
+  def testPickUpBonuses(self):
+    strat, context = ContextFromFile('000_0_3_map06')
+    move = Move()
+    strat.Init(context)
+    plan = strat.RealMove(context, move)
+    self.assertTrue(any(isinstance(x, actions.Walk) and x.where == Point(26, 3) for x in plan))
+
   def testGo(self):
     strat, context = ContextFromFile('020_1_2_default')
     move = Move()
     print context.me.xy
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.MOVE)
-    self.assertEqual(Point(move.x, move.y), Point(25, 4))
+    self.assertEqual(Point(move.x, move.y), Point(26, 3))
 
   def testMustMedikit(self):
     strat, context = ContextFromFile('109_6_2_map04')
     move = Move()
-    strat.RealMove(context, move)
-    if move.action == ActionType.MOVE:
-      self.assertEqual(move.action, ActionType.MOVE)
-      self.assertEqual(Point(move.x, move.y), Point(21, 6))
-    else:
-      self.assertEqual(move.action, ActionType.USE_MEDIKIT)
+    plan = scouting.ScoutingMove(context, move)
+    self.assertTrue(any(isinstance(x, actions.UseMedikit) for x in plan))
 
   def testTakeMedikit(self):
     strat, context = ContextFromFile('049_2_3_map05')
     move = Move()
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.MOVE)
-    self.assertEqual(move.x, 23)
-    self.assertEqual(move.y, 1)
+    self.assertEqual(Point(move.x, move.y), Point(23, 1))
 
   def testDontEatEnergizer(self):
     strat, context = ContextFromFile('004_0_3_map04')
     move = Move()
     plan = scouting.ScoutingMove(context, move)
     self.assertFalse(any(isinstance(x, actions.Energizer) for x in plan))
+
+  def testMoveSomewhere(self):
+    strat, context = ContextFromFile('409_26_3_fefer')
+    move = Move()
+    strat.RealMove(context, move)
+    self.assertEqual(move.action, ActionType.MOVE)
+

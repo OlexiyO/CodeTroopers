@@ -19,9 +19,13 @@ def RunServer(config_file, seed):
 
 
 def RunOldPlayer(port, ID, first_moves_random):
-  D = 'C:/Coding/CodeTroopers/v12/'
+  VERSION = 12
+  D = 'C:/Coding/CodeTroopers/v%d/' % VERSION
   STRATEGY = os.path.join(D, 'RunPlayer.py')
-  call(['python', STRATEGY, '127.0.0.1', str(port), ID, first_moves_random], shell=True, cwd=D)
+  if VERSION >= 22:
+    call(['python', STRATEGY, str(port), first_moves_random], shell=True, cwd=D)
+  else:
+    call(['python', STRATEGY, '127.0.0.1', str(port), ID, first_moves_random], shell=True, cwd=D)
 
 
 def RunLatestPlayer(port, ID, with_debug, first_moves_random):
@@ -34,7 +38,7 @@ def RunLatestPlayer(port, ID, with_debug, first_moves_random):
   else:
     D = 'C:/Coding/CodeTroopers/src/'
     STRATEGY = 'C:/Coding/CodeTroopers/src/RunPlayer.py'
-    call(['python', STRATEGY, str(port), ID, first_moves_random], shell=True, cwd=D)
+    call(['python', STRATEGY, str(port), first_moves_random], shell=True, cwd=D)
 
 
 def RunOneCombat(config_file, output_filepath, base_port, seed, my_player_index, with_debug, first_moves_random):
