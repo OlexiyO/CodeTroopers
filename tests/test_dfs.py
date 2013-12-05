@@ -94,17 +94,18 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.x, 22)
     self.assertEqual(move.y, 6)
 
-  def testShootOrLowerStance(self):
-    # TODO: Make sure we drop to position where they can not shoot us.
+  def testLowerStance(self):
+    # Bad: [Shoot {'where': Point(x=24, y=13)}, Energizer {}, Shoot {'where': Point(x=24, y=13)}, Walk {'where': Point(x=24, y=5)}]
     # Lower stance -> shoot -> lower stance (hide)
     # Or: shoot, energy, shoot, walk away
     strat, context = ContextFromFile('022_1_2_map03')
     move = Move()
     plan = strat.CombatMove(context, move)
-    #[Shoot {'where': Point(x=24, y=13)}, Energizer {}, Shoot {'where': Point(x=24, y=13)}, Walk {'where': Point(x=24, y=5)}]
-    if move.action != ActionType.LOWER_STANCE:
-      self.assertIsInstance(plan[-1], actions.Walk)
-      self.assertEqual(plan[-1].where, Point(24, 5))
+    self.assertEqual(3, len(plan))
+    self.assertEqual(move.action, ActionType.LOWER_STANCE)
+    self.assertIsInstance(plan[1], actions.Shoot)
+    self.assertEqual(plan[1].where, Point(24, 13))
+    self.assertIsInstance(plan[2], actions.LowerStance)
 
     strat, context = ContextFromFile('023_1_2_map03')
     move = Move()
@@ -164,7 +165,7 @@ class ScoutingTest(unittest.TestCase):
     move = Move()
     strat.Init(context)
     plan = strat.RealMove(context, move)
-    self.assertTrue(any(isinstance(x, actions.Walk) and x.where == Point(26, 3) for x in plan))
+    self.assertTrue(any(isinstance(x, actions.Walk) and x.where in (Point(26, 3), Point(28, 0)) for x in plan))
 
   def testGo(self):
     strat, context = ContextFromFile('020_1_2_default')
@@ -194,8 +195,8 @@ class ScoutingTest(unittest.TestCase):
     self.assertFalse(any(isinstance(x, actions.Energizer) for x in plan))
 
   def testMoveSomewhere(self):
-    strat, context = ContextFromFile('409_26_3_fefer')
+    global_vars.LAST_SEEN_ENEMIES = 8
+    strat, context = ContextFromFile('140_10_0_map06')
     move = Move()
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.MOVE)
-

@@ -44,7 +44,7 @@ class Searcher(object):
     context.me = old_me
     best_act = self.bestActions[0]
     best_act.SetMove(self.pos, move)
-    print 'Plan:', self.bestActions
+    print 'Goal:', global_vars.NextGoal(), ' Plan:', self.bestActions
     global_vars.FORCED_ACTIONS = []
     global_vars.FORCED_MOVE_ID = context.world.move_index, self.pos.me.type
     for n, act in enumerate(self.bestActions):

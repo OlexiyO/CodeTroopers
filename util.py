@@ -50,7 +50,7 @@ import time
 
 def TimeMe(func):
   #if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
-  #return func
+  #  return func
   def Wrapped(*args, **kwargs):
     x = time.time()
     r = func(*args, **kwargs)
@@ -140,7 +140,7 @@ def _FillCellImportance(context):
 
 
 def _CellVisionForStance(context, stance):
-  R = 7
+  R = 8
   dominated_by = Array2D(None)
   vision = Array2D(0)
   for x_ in xrange(X):
@@ -204,6 +204,7 @@ def CanSee(context, who, target):
                      who.stance, target.xy.x, target.xy.y, target.stance)
 
 
+@TimeMe
 def CanShoot(context, who, target):
   return IsVisible(context, ShootingRange(context, who), who.xy.x, who.xy.y, who.stance, target.xy.x, target.xy.y, target.stance)
 
@@ -232,3 +233,19 @@ def PrintTrooper(trooper):
 
 def PlayerCountFromTeamSize(ts):
   return 2 if ts == 5 else 4
+
+
+def ManhDist(A, B):
+  return global_vars.distances[A.x][A.y][B.x][B.y]
+
+
+def ClosestEmptyCell(context, to):
+  for dist in range(1, 10):
+    for dx in range(dist + 1):
+      for dy in range(dist + 1 - dx):
+        for x in (-dx, dx):
+          for y in (-dy, dy):
+            p1 = Point(to.x + x, to.y + y)
+            if context.CanMoveTo(p1):
+              return p1
+  return None

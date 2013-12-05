@@ -15,6 +15,7 @@ import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
+import params
 import scouting
 import util
 
@@ -54,7 +55,7 @@ class MyStrategy(object):
     self.FillCornersOrder(context)
     p1, p2 = global_vars.ORDER_OF_CORNERS[0], global_vars.ORDER_OF_CORNERS[3]
     p3 = Point((p1.x*2 + p2.x) / 3, (p1.y*2 + p2.y) / 3)
-    global_vars.NEXT_GOAL = ClosestEmptyCell(context, p3)
+    global_vars.SetNextGoal(context, util.ClosestEmptyCell(context, p3))
     print 'PPPP', p3, global_vars.NEXT_GOAL
     global_vars.UNITS_IN_GAME = len([t for t in context.world.troopers if t.teammate])
     if global_vars.STDOUT_LOGGING:
@@ -129,7 +130,7 @@ class MyStrategy(object):
       res[xy] = enemy
     context.enemies = res
     ENEMIES = res
-    global_vars.UpdateSeenEnemies(context)
+    global_vars.UpdateSeenEnemies(context, context.enemies.keys())
 
   def AdjustEnemiesToDmg(self, xy, dmg):
     global ENEMIES
@@ -173,21 +174,23 @@ class MyStrategy(object):
       def ShootInvisible(where):
         if where in context.allies:
           return False
-        for p in context.allies.itervalues():
-          discount = 0 if p.type == TrooperType.SCOUT else context.game.sniper_prone_stealth_bonus
-          sniper_vision_range = p.vision_range - discount
-          if util.IsVisible(context, sniper_vision_range, p.x, p.y, p.stance, where.x, where.y, TrooperStance.PRONE):
-            return False
-        return util.IsVisible(context, my_shooting_range, me.x, me.y, me.stance,
-                              where.x, where.y, TrooperStance.PRONE)
+        for S in params.ALL_STANCES:
+          can_see = False
+          for p in context.allies.itervalues():
+            discount = 0 if p.type == TrooperType.SCOUT else context.game.sniper_prone_stealth_bonus
+            sniper_vision_range = p.vision_range - discount
+            can_see |= util.IsVisible(context, sniper_vision_range, p.x, p.y, p.stance, where.x, where.y, S)
+          if not can_see and util.IsVisible(context, my_shooting_range, me.x, me.y, me.stance, where.x, where.y, S):
+            return True
+        return False
 
-      bd = -1000
+      bd = 1000
       for x in range(int(me.x - my_shooting_range), int(me.x + my_shooting_range + 1.01)):
         for y in range(int(me.y - my_shooting_range), int(me.y + my_shooting_range + 1.01)):
           where = Point(x, y)
           if context.IsPassable(where):
-            value = global_vars.cell_vision[TrooperStance.PRONE][x][y] - len(global_vars.cell_dominated_by[TrooperStance.PRONE][x][y])
-            if value > bd and ShootInvisible(where):
+            value = util.ManhDist(where, global_vars.NextGoal()) #global_vars.cell_vision[TrooperStance.PRONE][x][y] - len(global_vars.cell_dominated_by[TrooperStance.PRONE][x][y])
+            if value < bd and ShootInvisible(where):
               move.action = ActionType.SHOOT
               move.x, move.y = x, y
               bd = value
@@ -269,23 +272,11 @@ class MyStrategy(object):
     global_vars.ORDER_OF_CORNERS = []
     x = 0 if me.x < X / 2 else X - 1
     y = 0 if me.y < Y / 2 else Y - 1
-    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
     y = 0 if y > Y / 2 else Y - 1  # Switch y
-    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
     x = 0 if me.x > X / 2 else X - 1
-    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
     y = 0 if y > Y / 2 else Y - 1  # Switch y
-    global_vars.ORDER_OF_CORNERS.append(ClosestEmptyCell(context, Point(x, y)))
+    global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
     global_vars.NEXT_CORNER = global_vars.ITERATION_ORDER
-
-
-def ClosestEmptyCell(context, to):
-  for dist in range(1, 10):
-    for dx in range(dist + 1):
-      for dy in range(dist + 1 - dx):
-        for x in (-dx, dx):
-          for y in (-dy, dy):
-            p1 = Point(to.x + x, to.y + y)
-            if context.CanMoveTo(p1):
-              return p1
-  return None

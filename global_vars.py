@@ -19,6 +19,7 @@ FORCED_MOVE_ID = None
 FORCED_ACTIONS = []
 LAST_SEEN_ENEMIES = 0
 LAST_SWITCHED_GOAL = 0
+LAST_ENEMY_POSITION = []
 
 
 def NextGoal():
@@ -30,23 +31,27 @@ SNIPER_SHOOTING_RANGE = 10
 POSITION_AT_START_MOVE = None
 
 
-def ManhDist(A, B):
-  return distances[A.x][A.y][B.x][B.y]
-
-
-def UpdateSeenEnemies(context):
-  global NEXT_GOAL, LAST_SEEN_ENEMIES, LAST_SWITCHED_GOAL
-  if context.enemies:
-    NEXT_GOAL = context.enemies.keys()[0]
+def UpdateSeenEnemies(context, coords):
+  global NEXT_GOAL, LAST_SEEN_ENEMIES, LAST_SWITCHED_GOAL, LAST_ENEMY_POSITION
+  if coords:
+    SetNextGoal(context, coords[0])
     LAST_SEEN_ENEMIES = context.world.move_index
-    LAST_SWITCHED_GOAL = context.world.move_index
+    LAST_ENEMY_POSITION = list(coords)
 
 
 def SwitchToNextGoal(move_index):
-  global NEXT_CORNER, NEXT_GOAL, ITERATION_ORDER, LAST_SWITCHED_GOAL
+  global NEXT_CORNER, NEXT_GOAL, ITERATION_ORDER, LAST_SWITCHED_GOAL, LAST_ENEMY_POSITION
   if NEXT_GOAL is not None:
     NEXT_GOAL = None
   else:
     NEXT_CORNER = (NEXT_CORNER + ITERATION_ORDER) % 4
+  LAST_ENEMY_POSITION = []
   LAST_SWITCHED_GOAL = move_index
+  print 'NEXT', NextGoal()
+
+
+def SetNextGoal(context, next_goal):
+  global NEXT_GOAL, LAST_SWITCHED_GOAL
+  NEXT_GOAL = next_goal
+  LAST_SWITCHED_GOAL = context.world.move_index
   print 'NEXT', NextGoal()

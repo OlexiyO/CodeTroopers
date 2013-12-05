@@ -1,5 +1,7 @@
 from collections import namedtuple
+from constants import Point, ALL_DIRS, PointAndDir
 import global_vars
+from model.TrooperStance import TrooperStance
 import params
 import util
 
@@ -108,13 +110,14 @@ class BattleSimulator(object):
 
   def SomeEnemySeesUs(self):
     for enemy_index, hp in enumerate(self.enemies_hp):
-      if hp > 0 and any(they_see_us[enemy_index]):
+      if hp > 0 and (any(they_see_us[enemy_index]) or any(they_shoot_us[enemy_index])):
         return True
     return False
 
-def EnemyFights(context, position):
+
+@util.TimeMe
+def EnemyFights(simulator, context, position):
   global full_order
-  simulator = BattleSimulator(context, position)
   enemy_sees_us = simulator.SomeEnemySeesUs()
   gained = 0
   lost = 0
@@ -125,13 +128,13 @@ def EnemyFights(context, position):
       lost += simulator.EnemyShot(turn.unit)
   if not simulator.i_shoot_them:
     gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
-  return enemy_sees_us, gained, lost
+  return gained, lost
 
 
-def EnemyRuns(context, position):
+@util.TimeMe
+def EnemyRuns(simulator, context, position):
   global full_order
   gained = 0
-  simulator = BattleSimulator(context, position)
   for turn in full_order:
     if turn.round > 0:
       break
@@ -142,15 +145,36 @@ def EnemyRuns(context, position):
       simulator.enemies_hp[turn.unit] = 0
   if not simulator.i_shoot_them:
     gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
-  return gained, 0
+  return gained
+
+
+@util.TimeMe
+def SafetyBonus(simulator, context, position):
+  suspicious_cells = set(enemies_xy)
+  xy = position.me.xy
+  for exy in enemies_xy:
+    for d in ALL_DIRS:
+      p1 = PointAndDir(exy, d)
+      if context.IsPassable(p1):
+        suspicious_cells.add(p1)
+
+  dangerous_cells = len([p for p in suspicious_cells
+                         if util.IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])
+  invisible_enemy_danger = -dangerous_cells / 10.
+  they_dont_see_us_bonus = 0 if (simulator.SomeEnemySeesUs() or dangerous_cells > 0) else params.THEY_DONT_SEE_US_BONUS
+  return invisible_enemy_danger + they_dont_see_us_bonus
 
 
 @util.TimeMe
 def PredictBattle(context, position):
-  enemy_sees_us, gained, lost = EnemyFights(context, position)
-  they_run, _ = EnemyRuns(context, position)
-  safety_bonus = 0 if enemy_sees_us else params.THEY_DONT_SEE_US_BONUS
-  return safety_bonus + min(gained - lost * params.HEAL_DISCOUNT, they_run)
+  simulator = BattleSimulator(context, position)
+  ahp, ehp = list(simulator.allies_hp), list(simulator.enemies_hp)
+  gained, lost = EnemyFights(simulator, context, position)
+  simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
+  gain_if_they_run = EnemyRuns(simulator, context, position)
+  simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
+  safety_bonus = SafetyBonus(simulator, context, position)
+  return safety_bonus + min(gained - lost * params.HEAL_DISCOUNT, gain_if_they_run)
 
 
 # What do we store

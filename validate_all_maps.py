@@ -7,10 +7,10 @@ import datetime
 import util
 
 
-NUM_GAMES = 15
+NUM_GAMES = 10
 random_moves = 2
-TEAM_SIZE = 5
-MAPS_IN_PARALLEL = 9
+TEAM_SIZE = 4
+MAPS_IN_PARALLEL = 3
 
 def DoValidate(port, map_name, output_file):
   global random_moves
@@ -47,7 +47,7 @@ def PrintResults():
     yield  'Map: %s' % map_name
     yield  'Log: %s' % fname
     #d = deque(open(fname), 5 + N)
-    d = deque(open(fname), 4 + util.PlayerCountFromTeamSize(TEAM_SIZE))
+    d = deque(open(fname), 2 + util.PlayerCountFromTeamSize(TEAM_SIZE))
     yield  ''.join(d)
 
 for line in PrintResults():

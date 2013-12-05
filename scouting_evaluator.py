@@ -1,5 +1,4 @@
 from battle_evaluator import _HoldItemsBonus, _HealEffect
-from constants import Point
 import global_vars
 import map_util
 from model.BonusType import BonusType
@@ -8,20 +7,59 @@ import params
 import util
 
 
-def EvaluatePosition(context, position):
-  too_far = max(3, global_vars.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
-  walk_too_far = -5000 * (too_far - 3)
+def DontGoBeforeScoutPenalty(context, position):
+  if len(context.world.players) > 2 or position.me.type == TrooperType.SCOUT:
+    return 0
+  scout_xy = None
+  for xy, ally in context.allies.iteritems():
+    if ally.type == TrooperType.SCOUT:
+      scout_xy = xy
+  if scout_xy is None:
+    return 0
 
-  original_manh_dist = max(global_vars.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
-  current_manh_dist = max(global_vars.ManhDist(position.me.xy, xy) for xy in context.allies)
-  original_penalty = max(0, (original_manh_dist - params.TOO_FAR_FROM_HERD))
-  current_penalty = max(0, (current_manh_dist - params.TOO_FAR_FROM_HERD))
-  MAX_WIN_PER_TURN = 3
-  gain = min(original_penalty - current_penalty, MAX_WIN_PER_TURN)
-  too_far_penalty = (MAX_WIN_PER_TURN - gain) * -10000
+  #original_dist_to_goal = util.ManhDist(global_vars.POSITION_AT_START_MOVE, global_vars.NextGoal())
+  current_dist_to_goal = util.ManhDist(position.me.xy, global_vars.NextGoal())
+  scout_distance = util.ManhDist(scout_xy, global_vars.NextGoal())
+  return max(0, scout_distance + 1 - current_dist_to_goal)
+
+
+
+def EverythingIsSafe(context, position):
+  return False
+  #return len(context.world.players) == 2 and context.world.move_index == 0
+
+
+def EvaluatePosition(context, position):
+  if EverythingIsSafe(context, position):
+    too_far_penalty = 0
+    walk_too_far = 0
+    dont_go_before_scout_penalty = 0
+  else:
+    too_far = max(3, util.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
+    walk_too_far = -5000 * (too_far - 3)
+    too_far_penalty = TooFarFromHerdPenalty(context, position) * -10000
+    dont_go_before_scout_penalty = DontGoBeforeScoutPenalty(context, position) * -1000
 
   benefit_score = _BenefitScore(context, position)
-  return benefit_score + too_far_penalty + walk_too_far
+  return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty
+
+
+def TooFarFromHerdPenalty(context, position):
+  if not context.allies:
+    return 0
+
+  go_to_unit = min(context.allies.itervalues(), key=lambda unit: unit.type)
+  #original_manh_dist = max(util.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
+  original_manh_dist = util.ManhDist(global_vars.POSITION_AT_START_MOVE, go_to_unit)
+  #current_manh_dist = max(util.ManhDist(position.me.xy, xy) for xy in context.allies)
+  current_manh_dist = util.ManhDist(position.me.xy, go_to_unit)
+  original_penalty = max(0, original_manh_dist - params.TOO_FAR_FROM_HERD)
+  current_penalty = max(0, current_manh_dist - params.TOO_FAR_FROM_HERD)
+  MAX_WIN_PER_TURN = 3
+  level_zero = max(0, original_penalty - MAX_WIN_PER_TURN)
+  if current_penalty <= level_zero:
+    return 0
+  return current_penalty - level_zero
 
 
 def NeedBonus(context, position, bt):
@@ -65,9 +103,7 @@ def _BonusesScore(context, position):
 def _BenefitScore(context, position):
   hp_improvement = _HealEffect(context, position) * 1.2
   items_bonus = _HoldItemsBonus(context, position)
-  next_goal = global_vars.NextGoal()
-  dist = global_vars.distances[next_goal.x][next_goal.y][position.me.xy.x][position.me.xy.y]
-  dist_score = 100 - dist
+  dist_score = 100 - util.ManhDist(global_vars.NextGoal(), position.me.xy)
   return hp_improvement + items_bonus + dist_score * .5
 
 
@@ -79,21 +115,6 @@ def _GetCellDangerScore(context, position):
   invisible_enemies = [p for p in global_vars.cell_dominated_by[position.me.stance][xy.x][xy.y]
                        if not context.IsVisible(p, position.me.stance)]
   return len(invisible_enemies)
-
-
-def _SafetyScore(context, position):
-  #sparsity_penalty = _DistFromHerdPenalty(context, position)
-  return -_AttackingOrderPenalty(context, position)
-  '''
-  if context.world.move_index == 0 and map_util.SecureOnFirstTurn(context):
-    return 0
-
-  cell_danger_score = _GetCellDangerScore(context, position)
-  if cell_danger_score > 0:
-    return -cell_danger_score * 100
-  else:
-    return -_AttackingOrderPenalty(context, position)
-  '''
 
 
 def _AttackingOrderPenalty(context, position):
