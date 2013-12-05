@@ -228,3 +228,7 @@ def ComputeItemBonuses(context, trooper):
 
 def PrintTrooper(trooper):
   return '%11s (%d, %d) %s' % (GetName(TrooperType, trooper.type), trooper.x, trooper.y, GetName(TrooperStance, trooper.stance))
+
+
+def PlayerCountFromTeamSize(ts):
+  return 2 if ts == 5 else 4

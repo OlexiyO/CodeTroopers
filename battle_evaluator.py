@@ -16,11 +16,6 @@ class TurnOrder(object):
 
 
 def EvaluatePosition(context, position):
-  #global SHOULD_ASSERT
-  #if SHOULD_ASSERT:
-  #  SHOULD_ASSERT = False
-  #  assert _LowHPBonus(context, 1) < params.KILL_EXTRA_PROFIT, _LowHPBonus(context, 1)
-
   points_scored = _PointsScored(context, position)
   hp_improvement = _HealEffect(context, position) * 1.2
   items_bonus = _HoldItemsBonus(context, position) * .2

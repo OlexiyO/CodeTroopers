@@ -80,7 +80,9 @@ def StanceForRunning(context, trooper):
 def ScoutingMove(context, move):
   # Leave 2 steps.
   CheckIfAchievedGoal(context)
-  # if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - 4:
+  if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - 4 and global_vars.LAST_SWITCHED_GOAL < context.world.move_index - 8:
+    global_vars.SwitchToNextGoal(context.world.move_index)
+
   if context.me.action_points >= 2:
     if context.me.stance < StanceForRunning(context, context.me):
       move.action = ActionType.RAISE_STANCE
@@ -143,8 +145,4 @@ def CheckIfAchievedGoal(context):
   g = global_vars.NextGoal()
   xy = context.me.xy
   if util.IsVisible(context, 4, xy.x, xy.y, TrooperStance.PRONE, g.x, g.y, TrooperStance.PRONE):
-    if global_vars.NEXT_GOAL is not None:
-      global_vars.NEXT_GOAL = None
-    else:
-      global_vars.NEXT_CORNER = (global_vars.NEXT_CORNER + global_vars.ITERATION_ORDER) % 4
-    print 'NEXT', global_vars.NextGoal()
+    global_vars.SwitchToNextGoal(context.world.move_index)

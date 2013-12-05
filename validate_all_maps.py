@@ -1,19 +1,24 @@
 from collections import deque
+import os
 from subprocess import call
 import tempfile
 from threading import Thread
+import datetime
+import util
 
 
-NUM_GAMES = 12
+NUM_GAMES = 15
 random_moves = 2
+TEAM_SIZE = 5
+MAPS_IN_PARALLEL = 9
 
 def DoValidate(port, map_name, output_file):
   global random_moves
   with open(output_file, 'w') as fout:
-    call('python Validation.py %d %s %d %d' % (port, map_name, NUM_GAMES, random_moves),
-       shell=True,
-       cwd='C:/Coding/CodeTroopers/src',
-       stdout=fout)
+    call('python Validation.py %d %s %d %d %d' % (port, map_name, NUM_GAMES, random_moves, TEAM_SIZE),
+         shell=True,
+         cwd='C:/Coding/CodeTroopers/src',
+         stdout=fout)
 
 port = 33000
 threads = []
@@ -27,19 +32,28 @@ for map_name in ['default', 'map01', 'cheeser', 'map02', 'map03', 'map04', 'map0
   port += 100
 
 T = len(threads)
-STEP = 3
-for n in range(0, T, STEP):
-  tt = threads[n: n + STEP]
+for n in range(0, T, MAPS_IN_PARALLEL):
+  tt = threads[n: n + MAPS_IN_PARALLEL]
   for t in tt:
     t.start()
   for t in tt:
     t.join()
 
-print 'Random moves:', random_moves
-for map_name, fname in data:
-  print
-  print 'Map:', map_name
-  print 'Log:', fname
-  #d = deque(open(fname), 5 + N)
-  d = deque(open(fname), 6)
-  print ''.join(d)
+
+def PrintResults():
+  yield 'Random moves: %d' % random_moves
+  for map_name, fname in data:
+    yield ''
+    yield  'Map: %s' % map_name
+    yield  'Log: %s' % fname
+    #d = deque(open(fname), 5 + N)
+    d = deque(open(fname), 4 + util.PlayerCountFromTeamSize(TEAM_SIZE))
+    yield  ''.join(d)
+
+for line in PrintResults():
+  print line
+
+validation_filepath = os.path.join('C:/Coding/CodeTroopers/validation/',
+                                   '%d_%s' % (TEAM_SIZE, datetime.datetime.now().strftime('%Y%m%d %H%M%S')))
+with open(validation_filepath, 'w') as fout:
+  fout.write('\n'.join(PrintResults()))

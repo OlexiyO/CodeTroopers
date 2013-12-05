@@ -1,11 +1,12 @@
 import tempfile
+import util
 
 CONFIG = """
 render-to-screen=%(render)s
 render-to-screen-sync=%(render)s
 results-file=%(output_filepath)s
-team-size=4
-player-count=4
+team-size=%(team_size)s
+player-count=%(player_count)s
 p1-type=Local
 p2-type=Local
 p3-type=Local
@@ -29,6 +30,8 @@ def CreateConfigFile(**kwargs):
   print config_filepath
   if 'seed' in kwargs and kwargs['seed'] == '0000000000000000':
     kwargs['seed'] = None
+
+  kwargs['player_count'] = util.PlayerCountFromTeamSize(kwargs['team_size'])
   with open(config_filepath, 'w') as fout:
     fout.write(CONFIG % kwargs)
     for n, name in zip([1, 2, 3, 4], names):

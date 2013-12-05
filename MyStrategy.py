@@ -1,5 +1,6 @@
 import cPickle as pickle
 import os
+from random import randint
 import time
 from actions import Position
 

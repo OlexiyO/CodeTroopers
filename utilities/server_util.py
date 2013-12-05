@@ -19,7 +19,7 @@ def RunServer(config_file, seed):
 
 
 def RunOldPlayer(port, ID, first_moves_random):
-  VERSION = 12
+  VERSION = 22
   D = 'C:/Coding/CodeTroopers/v%d/' % VERSION
   STRATEGY = os.path.join(D, 'RunPlayer.py')
   if VERSION >= 22:
@@ -41,12 +41,13 @@ def RunLatestPlayer(port, ID, with_debug, first_moves_random):
     call(['python', STRATEGY, str(port), first_moves_random], shell=True, cwd=D)
 
 
-def RunOneCombat(config_file, output_filepath, base_port, seed, my_player_index, with_debug, first_moves_random):
+def RunOneCombat(config_file, output_filepath, base_port, seed, my_player_index, with_debug, first_moves_random, player_count):
   tserver = threading.Thread(target=RunServer, args=(config_file, seed))
   tserver.start()
   time.sleep(.75)
   threads = [tserver]
-  for n in range(4):
+  assert 0 <= my_player_index < player_count, '%d %d' % (my_player_index, player_count)
+  for n in range(player_count):
     if n == my_player_index:
       tgt = RunLatestPlayer
       tp = threading.Thread(target=tgt, args=(base_port + n, seed, with_debug, first_moves_random))

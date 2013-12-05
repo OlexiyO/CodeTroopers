@@ -18,6 +18,7 @@ NEXT_GOAL = None
 FORCED_MOVE_ID = None
 FORCED_ACTIONS = []
 LAST_SEEN_ENEMIES = 0
+LAST_SWITCHED_GOAL = 0
 
 
 def NextGoal():
@@ -34,7 +35,18 @@ def ManhDist(A, B):
 
 
 def UpdateSeenEnemies(context):
-  global NEXT_GOAL, LAST_SEEN_ENEMIES
+  global NEXT_GOAL, LAST_SEEN_ENEMIES, LAST_SWITCHED_GOAL
   if context.enemies:
     NEXT_GOAL = context.enemies.keys()[0]
     LAST_SEEN_ENEMIES = context.world.move_index
+    LAST_SWITCHED_GOAL = context.world.move_index
+
+
+def SwitchToNextGoal(move_index):
+  global NEXT_CORNER, NEXT_GOAL, ITERATION_ORDER, LAST_SWITCHED_GOAL
+  if NEXT_GOAL is not None:
+    NEXT_GOAL = None
+  else:
+    NEXT_CORNER = (NEXT_CORNER + ITERATION_ORDER) % 4
+  LAST_SWITCHED_GOAL = move_index
+  print 'NEXT', NextGoal()
