@@ -50,7 +50,8 @@ import time
 
 def TimeMe(func):
   #if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
-  #  return func
+  return func
+
   def Wrapped(*args, **kwargs):
     x = time.time()
     r = func(*args, **kwargs)
@@ -249,3 +250,7 @@ def ClosestEmptyCell(context, to):
             if context.CanMoveTo(p1):
               return p1
   return None
+
+
+def NormalizePosition(xy):
+  return Point(min(xy.x, X - 1 - xy.x), min(xy.y, Y - 1 - xy.y))

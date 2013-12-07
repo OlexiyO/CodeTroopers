@@ -4,18 +4,18 @@ from utilities.create_config import CreateConfigFile
 
 SHARED_ID = '0000000000000000'
 #SHARED_ID = '3513451172593653' -- VERY slow battle on map02
-SHARED_ID = '4027734731632114'
+SHARED_ID = '4107200907216270'
 
 output_filepath = 'C:/Coding/CodeTroopers/Combat/result.txt'
 base_port = 31111
 my_player_index = 1  #random.randint(0, 3)
 print my_player_index
-TEAM_SIZE = 5
+TEAM_SIZE = 4
 config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='map06',
+                               map_name='map03',
                                team_size=TEAM_SIZE,
                                my_player_index=my_player_index)
 import time

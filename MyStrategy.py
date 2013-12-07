@@ -1,6 +1,5 @@
 import cPickle as pickle
 import os
-from random import randint
 import time
 from actions import Position
 
@@ -68,6 +67,7 @@ class MyStrategy(object):
     dt = time.time() - t
     if global_vars.STDOUT_LOGGING:
       print 'Init in: %.2f' % dt
+
     global_vars.INITIALIZED = True
 
   def IsContinuingMove(self, context):
@@ -94,7 +94,6 @@ class MyStrategy(object):
     VISIBLE_CELLS = context.visible_cells
 
   def _MergeBonusesInfo(self, context):
-    # TODO: Remember places with possible bonuses. Visit them.
     global BONUSES
     if self.IsContinuingMove(context):
       res = {p: b for p, b in BONUSES.iteritems() if p != context.me.xy}
@@ -107,7 +106,7 @@ class MyStrategy(object):
     BONUSES = res
 
   def _MergeEnemiesInfo(self, context):
-    # TODO: Don't drop enemies between turns.
+    # TODO: Don't totally drop enemies between turns.
     global ENEMIES
     global PREV_ACTION
     if self.IsContinuingMove(context):

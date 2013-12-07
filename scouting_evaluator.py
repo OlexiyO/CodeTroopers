@@ -48,11 +48,9 @@ def TooFarFromHerdPenalty(context, position):
   if not context.allies:
     return 0
 
-  go_to_unit = min(context.allies.itervalues(), key=lambda unit: unit.type)
-  #original_manh_dist = max(util.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
-  original_manh_dist = util.ManhDist(global_vars.POSITION_AT_START_MOVE, go_to_unit)
-  #current_manh_dist = max(util.ManhDist(position.me.xy, xy) for xy in context.allies)
-  current_manh_dist = util.ManhDist(position.me.xy, go_to_unit)
+  #go_to_unit = min(context.allies.itervalues(), key=lambda unit: unit.type)
+  original_manh_dist = max(util.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
+  current_manh_dist = max(util.ManhDist(position.me.xy, xy) for xy in context.allies)
   original_penalty = max(0, original_manh_dist - params.TOO_FAR_FROM_HERD)
   current_penalty = max(0, current_manh_dist - params.TOO_FAR_FROM_HERD)
   MAX_WIN_PER_TURN = 3

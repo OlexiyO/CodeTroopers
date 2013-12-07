@@ -250,5 +250,8 @@ class ScoutingSearcher(Searcher):
     self._TryMedikit()
     self._TryHeal()
     self._Try(RaiseStance(self.context), can_walk=True)
+    self._Try(RaiseStance(self.context), can_walk=True)
+    self._Try(LowerStance(self.context), can_walk=True)
+
     if can_walk:
       self._TryWalk()

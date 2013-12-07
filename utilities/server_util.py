@@ -19,7 +19,7 @@ def RunServer(config_file, seed):
 
 
 def RunOldPlayer(port, ID, first_moves_random):
-  VERSION = 22
+  VERSION = 12
   D = 'C:/Coding/CodeTroopers/v%d/' % VERSION
   STRATEGY = os.path.join(D, 'RunPlayer.py')
   if VERSION >= 22:

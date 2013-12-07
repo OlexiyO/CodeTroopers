@@ -1,4 +1,5 @@
 from collections import namedtuple
+import math
 from constants import Point, ALL_DIRS, PointAndDir
 import global_vars
 from model.TrooperStance import TrooperStance
@@ -122,10 +123,11 @@ def EnemyFights(simulator, context, position):
   gained = 0
   lost = 0
   for turn in full_order:
+    prediction_discount = math.pow(params.PREDICTION_DISCOUNT, turn.round + 1)
     if turn.side == MY_TURN:
-      gained += params.PREDICTION_DMG_DISCOUNT * simulator.MyShot(turn.unit)
+      gained += prediction_discount * simulator.MyShot(turn.unit)
     elif enemy_sees_us:
-      lost += simulator.EnemyShot(turn.unit)
+      lost += prediction_discount * simulator.EnemyShot(turn.unit)
   if not simulator.i_shoot_them:
     gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
   return gained, lost
@@ -161,7 +163,12 @@ def SafetyBonus(simulator, context, position):
   dangerous_cells = len([p for p in suspicious_cells
                          if util.IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])
   invisible_enemy_danger = -dangerous_cells / 10.
-  they_dont_see_us_bonus = 0 if (simulator.SomeEnemySeesUs() or dangerous_cells > 0) else params.THEY_DONT_SEE_US_BONUS
+  bonus_mult = 0
+  if not simulator.SomeEnemySeesUs():
+    bonus_mult += 1
+  if dangerous_cells == 0:
+    bonus_mult += 1
+  they_dont_see_us_bonus = bonus_mult * params.THEY_DONT_SEE_US_BONUS
   return invisible_enemy_danger + they_dont_see_us_bonus
 
 

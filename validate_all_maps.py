@@ -7,7 +7,7 @@ import datetime
 import util
 
 
-NUM_GAMES = 10
+NUM_GAMES = 6
 random_moves = 2
 TEAM_SIZE = 4
 MAPS_IN_PARALLEL = 3

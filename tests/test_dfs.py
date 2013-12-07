@@ -114,6 +114,15 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.x, 24)
     self.assertEqual(move.y, 13)
 
+  def testJustShoot(self):
+    strat, context = ContextFromFile('207_12_2_map03')
+    move = Move()
+    plan = strat.RealMove(context, move)
+    print plan
+    self.assertEqual(move.action, ActionType.SHOOT)
+    self.assertEqual(move.x, 17)
+    self.assertEqual(move.y, 6)
+
 
 class FightingTest(unittest.TestCase):
   def testFighting(self):
