@@ -7,6 +7,7 @@ from model.ActionType import ActionType
 from model.Move import Move
 import scouting
 from tests.test_util import ContextFromFile
+import util
 
 
 class ReliabilityTest(unittest.TestCase):
@@ -221,3 +222,16 @@ class ScoutingTest(unittest.TestCase):
     move = Move()
     strat.RealMove(context, move)
     self.assertEqual(move.action, ActionType.MOVE)
+
+  def testDontStrayTooFar(self):
+    strat, context = ContextFromFile('095_5_2_map06')
+    global_vars.SetNextGoal(context, Point(6, 14))
+    move = Move()
+    plan = strat.RealMove(context, move)
+
+    p = actions.Position(context)
+    for a in plan:
+      a.Apply(p)
+    mx = max(util.ManhDist(p.me.xy, xy) for xy in context.allies)
+    self.assertLessEqual(mx, 3)
+

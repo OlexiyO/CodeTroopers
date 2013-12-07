@@ -2,6 +2,7 @@ from collections import namedtuple
 import math
 from constants import Point, ALL_DIRS, PointAndDir
 import global_vars
+from global_vars import PlayerOrder
 from model.TrooperStance import TrooperStance
 import params
 import util
@@ -215,12 +216,19 @@ def Precompute(context, position):
   for round in range(params.BATTLE_SIMULATOR_NUM_ROUNDS):
     for n in range(N):
       unit_type = order[(start_from + n) % N]
-      if (round > 0 or n > 0) and position.GetUnit(unit_type) is not None:
-        full_order.append(BattleTurn(MY_TURN, round, unit_type))
+      if round > 0 or n > 0:
+        for enemy_index, xy in enumerate(enemies_xy):
+          enemy = context.enemies[xy]
+          if global_vars.GetPlayerOrder(enemy) == PlayerOrder.BEFORE_ME:
+            full_order.append(BattleTurn(ENEMY_TURN, round, enemy_index))
+        if position.GetUnit(unit_type) is not None:
+          full_order.append(BattleTurn(MY_TURN, round, unit_type))
+
       for enemy_index, xy in enumerate(enemies_xy):
         enemy = context.enemies[xy]
-        if enemy.type == unit_type:
+        if global_vars.GetPlayerOrder(enemy) != PlayerOrder.BEFORE_ME and enemy.type == unit_type:
           full_order.append(BattleTurn(ENEMY_TURN, round, enemy_index))
+
   global we_shoot_them
   global they_shoot_us
   global they_see_us

@@ -31,7 +31,7 @@ def ScoutingMove(context, move):
       context.me.type == TrooperType.COMMANDER and
       context.me.action_points >= context.game.commander_request_enemy_disposition_cost):
     move.action = ActionType.REQUEST_ENEMY_DISPOSITION
-    return
+    return ['Request']
   CheckIfAchievedGoal(context)
   #all_allies = [x for x in context.allies] + [context.me.xy]
   #max_d = max(max(util.ManhDist(a, b) for a in all_allies) for b in all_allies)
