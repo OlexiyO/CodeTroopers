@@ -2,6 +2,7 @@ import cPickle as pickle
 import os
 import time
 from actions import Position
+import actions
 
 import battle_evaluator
 from constants import *
@@ -135,6 +136,7 @@ class MyStrategy(object):
     global ENEMIES
     if xy in ENEMIES:
       if dmg > ENEMIES[xy].hitpoints:
+        global_vars.ALIVE_ENEMIES[ENEMIES[xy].type] = False
         del ENEMIES[xy]
       else:
         ENEMIES[xy].hitpoints -= dmg
@@ -148,7 +150,6 @@ class MyStrategy(object):
       dmg = context.game.grenade_direct_damage
       self.AdjustEnemiesToDmg(xy, dmg)
       for d in ALL_DIRS:
-        p1 = PointAndDir(xy, d)
         self.AdjustEnemiesToDmg(xy, context.game.grenade_collateral_damage)
 
   def MaybeSaveLog(self, context):
@@ -167,6 +168,7 @@ class MyStrategy(object):
 
   def ReactAtPass(self, context, move):
     me = context.me
+
     if me.action_points >= me.shoot_cost:
       # We already made some moves. If there is still energy -- lets randomly shoot in any direction.
       my_shooting_range = util.ShootingRange(context, me)
@@ -184,6 +186,7 @@ class MyStrategy(object):
         return False
 
       bd = 1000
+      found = False
       for x in range(int(me.x - my_shooting_range), int(me.x + my_shooting_range + 1.01)):
         for y in range(int(me.y - my_shooting_range), int(me.y + my_shooting_range + 1.01)):
           where = Point(x, y)
@@ -193,6 +196,21 @@ class MyStrategy(object):
               move.action = ActionType.SHOOT
               move.x, move.y = x, y
               bd = value
+              found = True
+
+      if found:
+        return
+    if me.action_points >= 2 * util.MoveCost(context, me.stance):
+      g = global_vars.NextGoal()
+      for d in ALL_DIRS:
+        p1 = PointAndDir(me.xy, d)
+        if context.CanMoveTo(p1) and util.ManhDist(p1, g) < util.ManhDist(me.xy, g):
+          move.action = ActionType.MOVE
+          move.x, move.y = p1.x, p1.y
+          global_vars.FORCED_ACTIONS = [actions.Walk(context, me.xy)]
+          global_vars.FORCED_MOVE_ID = context.world.move_index, me.type
+          global_vars.FORCED_MOVE_WITH_ENEMIES = bool(context.enemies)
+          return
 
   @util.TimeMe
   def move(self, me, world, game, move):
@@ -246,7 +264,9 @@ class MyStrategy(object):
       '''
       return None
 
-    if global_vars.FORCED_ACTIONS and (context.world.move_index, context.me.type) == global_vars.FORCED_MOVE_ID:
+    if (global_vars.FORCED_ACTIONS and
+        (context.world.move_index, context.me.type) == global_vars.FORCED_MOVE_ID and
+        global_vars.FORCED_MOVE_WITH_ENEMIES == bool(context.enemies)):
       print 'Using pre-computed action!'
       act = global_vars.FORCED_ACTIONS[0]
       global_vars.FORCED_ACTIONS = global_vars.FORCED_ACTIONS[1:]
@@ -278,4 +298,4 @@ class MyStrategy(object):
     global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
     y = 0 if y > Y / 2 else Y - 1  # Switch y
     global_vars.ORDER_OF_CORNERS.append(util.ClosestEmptyCell(context, Point(x, y)))
-    global_vars.NEXT_CORNER = global_vars.ITERATION_ORDER
+    global_vars.NEXT_CORNER = 2 if context.IsDuel() else global_vars.ITERATION_ORDER

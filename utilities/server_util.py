@@ -19,7 +19,7 @@ def RunServer(config_file, seed):
 
 
 def RunOldPlayer(port, ID, first_moves_random):
-  VERSION = 12
+  VERSION = 28
   D = 'C:/Coding/CodeTroopers/v%d/' % VERSION
   STRATEGY = os.path.join(D, 'RunPlayer.py')
   if VERSION >= 22:
@@ -70,4 +70,7 @@ def RunOneCombat(config_file, output_filepath, base_port, seed, my_player_index,
     print lines
     print my_player_index
   place = int(lines[2 + my_player_index][0])
+  same = len([line for line in lines[2:] if int(line[0]) == place])
+  place += same - 1
+
   return place, seed

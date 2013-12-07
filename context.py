@@ -119,3 +119,6 @@ class Context(object):
       for x in range(X):
         for y in range(Y):
           self.visible_cells[stance][x][y] |= CELLS[stance][x][y]
+
+  def IsDuel(self):
+    return len(self.world.players) == 2

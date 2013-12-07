@@ -5,7 +5,7 @@ from utilities.BaseRunner import Runner
 
 from subprocess import call
 P = 'C:/Coding/CodeTroopers/Repeater/repeater.bat'
-token = '564a03715287ddf23792167cc07cec5026cd11fc'
+token = 'd7a001bc365615c258a41fb14434739170d0b6b6'
 
 call([P, token], shell=True)
 util.StartSavingDebugDataToDisk()

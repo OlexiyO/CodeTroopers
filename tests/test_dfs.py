@@ -123,6 +123,18 @@ class BattleTest(unittest.TestCase):
     self.assertEqual(move.x, 17)
     self.assertEqual(move.y, 6)
 
+  def testBeBrave(self):
+    strat, context = ContextFromFile('308_15_2_map06')
+    move = Move()
+    global_vars.ALIVE_ENEMIES = [False, False, False, True, False]  # Only sniper
+    enemy_xy = Point(13, 2)
+    context.enemies[enemy_xy].hitpoints = 90
+    plan = strat.RealMove(context, move)
+    print plan
+    self.assertEqual(move.action, ActionType.LOWER_STANCE)
+    self.assertIsInstance(plan[1], actions.Shoot)
+    self.assertEqual(plan[1].where, enemy_xy)
+
 
 class FightingTest(unittest.TestCase):
   def testFighting(self):

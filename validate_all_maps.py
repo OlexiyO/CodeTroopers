@@ -7,9 +7,9 @@ import datetime
 import util
 
 
-NUM_GAMES = 6
+NUM_GAMES = 4
 random_moves = 2
-TEAM_SIZE = 4
+TEAM_SIZE = 5
 MAPS_IN_PARALLEL = 3
 
 def DoValidate(port, map_name, output_file):

@@ -7,8 +7,25 @@ import params
 import util
 
 
+def EvaluatePosition(context, position):
+  if EverythingIsSafe(context, position):
+    too_far_penalty = 0
+    walk_too_far = 0
+    dont_go_before_scout_penalty = 0
+    scouting_score = 0
+  else:
+    too_far = max(3, util.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
+    walk_too_far = -5000 * (too_far - 3)
+    too_far_penalty = TooFarFromHerdPenalty(context, position) * -10000
+    dont_go_before_scout_penalty = DontGoBeforeScoutPenalty(context, position) * -1000
+    scouting_score = 0 # -position.min_dist_to_goal * .1
+
+  benefit_score = _BenefitScore(context, position)
+  return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty + scouting_score
+
+
 def DontGoBeforeScoutPenalty(context, position):
-  if len(context.world.players) > 2 or position.me.type == TrooperType.SCOUT:
+  if position.me.type == TrooperType.SCOUT or not context.IsDuel():
     return 0
   scout_xy = None
   for xy, ally in context.allies.iteritems():
@@ -29,28 +46,15 @@ def EverythingIsSafe(context, position):
   #return len(context.world.players) == 2 and context.world.move_index == 0
 
 
-def EvaluatePosition(context, position):
-  if EverythingIsSafe(context, position):
-    too_far_penalty = 0
-    walk_too_far = 0
-    dont_go_before_scout_penalty = 0
-  else:
-    too_far = max(3, util.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
-    walk_too_far = -5000 * (too_far - 3)
-    too_far_penalty = TooFarFromHerdPenalty(context, position) * -10000
-    dont_go_before_scout_penalty = DontGoBeforeScoutPenalty(context, position) * -1000
-
-  benefit_score = _BenefitScore(context, position)
-  return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty
-
-
 def TooFarFromHerdPenalty(context, position):
   if not context.allies:
     return 0
 
   #go_to_unit = min(context.allies.itervalues(), key=lambda unit: unit.type)
   original_manh_dist = max(util.ManhDist(global_vars.POSITION_AT_START_MOVE, xy) for xy in context.allies)
+  #original_manh_dist = util.ManhDist(global_vars.POSITION_AT_START_MOVE, go_to_unit)
   current_manh_dist = max(util.ManhDist(position.me.xy, xy) for xy in context.allies)
+  #current_manh_dist = util.ManhDist(position.me.xy, go_to_unit)
   original_penalty = max(0, original_manh_dist - params.TOO_FAR_FROM_HERD)
   current_penalty = max(0, current_manh_dist - params.TOO_FAR_FROM_HERD)
   MAX_WIN_PER_TURN = 3

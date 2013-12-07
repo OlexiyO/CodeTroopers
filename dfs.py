@@ -47,6 +47,7 @@ class Searcher(object):
     print 'Goal:', global_vars.NextGoal(), ' Plan:', self.bestActions
     global_vars.FORCED_ACTIONS = []
     global_vars.FORCED_MOVE_ID = context.world.move_index, self.pos.me.type
+    global_vars.FORCED_MOVE_WITH_ENEMIES = bool(context.enemies)
     for n, act in enumerate(self.bestActions):
       if n > 0:
         if isinstance(self.bestActions[n - 1], (UseMedikit, FieldMedicHeal, LowerStance, Energizer, ThrowGrenade, Shoot)):

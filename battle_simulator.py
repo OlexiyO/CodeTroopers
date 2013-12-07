@@ -69,7 +69,9 @@ class BattleSimulator(object):
       for n, hp in enumerate(self.enemies_hp):
         if hp > 0 and we_shoot_them[t][n]:
           dmg_done_here = min(max_possible, hp)
-          score_here = params.KILL_EXTRA_PROFIT + hp if max_possible >= hp else max_possible
+          #last_enemy =
+          extra_profit = params.KILL_EXTRA_PROFIT # self.context.game.last_player_elimination_score if last_enemy else params.KILL_EXTRA_PROFIT
+          score_here = extra_profit + hp if max_possible >= hp else max_possible
           if score_here > score:
             ind, score, dmg_done = n, score_here, dmg_done_here
       if dmg_done == 0:
@@ -180,7 +182,12 @@ def PredictBattle(context, position):
   simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
   gain_if_they_run = EnemyRuns(simulator, context, position)
   simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
-  safety_bonus = SafetyBonus(simulator, context, position)
+  everything_illuminated = (context.IsDuel() and
+                            len([e for e in position.enemies_hp if e > 0]) == sum(global_vars.ALIVE_ENEMIES))
+  if everything_illuminated:
+    safety_bonus = 0
+  else:
+    safety_bonus = SafetyBonus(simulator, context, position)
   return safety_bonus + min(gained - lost * params.HEAL_DISCOUNT, gain_if_they_run)
 
 
@@ -208,7 +215,7 @@ def Precompute(context, position):
   for round in range(params.BATTLE_SIMULATOR_NUM_ROUNDS):
     for n in range(N):
       unit_type = order[(start_from + n) % N]
-      if round > 0 or n > 0:
+      if (round > 0 or n > 0) and position.GetUnit(unit_type) is not None:
         full_order.append(BattleTurn(MY_TURN, round, unit_type))
       for enemy_index, xy in enumerate(enemies_xy):
         enemy = context.enemies[xy]

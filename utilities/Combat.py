@@ -10,12 +10,12 @@ output_filepath = 'C:/Coding/CodeTroopers/Combat/result.txt'
 base_port = 31111
 my_player_index = 1  #random.randint(0, 3)
 print my_player_index
-TEAM_SIZE = 4
+TEAM_SIZE = 5
 config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='map03',
+                               map_name='map01',
                                team_size=TEAM_SIZE,
                                my_player_index=my_player_index)
 import time

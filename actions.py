@@ -1,6 +1,7 @@
 import copy
 from constants import TOTAL_UNIT_TYPES
 from context import Context
+import global_vars
 from model.BonusType import BonusType
 from model.ActionType import ActionType
 from model.Direction import Direction
@@ -54,6 +55,7 @@ class Position(object):
     self.holding_grenade = me.holding_grenade
     self.holding_medikit = me.holding_medikit
     self.holding_field_ration = me.holding_field_ration
+    self.min_dist_to_goal = util.ManhDist(global_vars.NextGoal(), me.xy)
 
   def HasBonus(self, btype):
     if btype == BonusType.GRENADE:
@@ -273,16 +275,19 @@ class Walk(BaseAction):
     ap = position.action_points
     bonuses = dict(position.bonuses_present.iteritems())
     old_loc = position.me.xy
+    old_dist_to_goal = position.min_dist_to_goal
+    position.min_dist_to_goal = min(util.ManhDist(global_vars.NextGoal(), position.me.xy), old_dist_to_goal)
     what_i_have = position.holding_field_ration, position.holding_grenade, position.holding_medikit
 
     self._SubtractActionPoints(position)
     position.me.xy = self.where
     MaybePickupBonus(position, self.context)
-    return ap, bonuses, old_loc, what_i_have
+    return ap, bonuses, old_loc, what_i_have, old_dist_to_goal
 
   def _Undo(self, position, info):
-    position.action_points, position.bonuses_present, position.me.xy, what_i_have = info
+    position.action_points, position.bonuses_present, position.me.xy, what_i_have, old_dist_to_goal = info
     position.holding_field_ration, position.holding_grenade, position.holding_medikit = what_i_have
+    position.min_dist_to_goal = old_dist_to_goal
 
   def SetMove(self, position, move):
     move.action = ActionType.MOVE
