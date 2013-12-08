@@ -5,6 +5,7 @@ import dfs
 import global_vars
 from model.ActionType import ActionType
 from model.Move import Move
+from model.TrooperStance import TrooperStance
 import scouting
 from tests.test_util import ContextFromFile
 import util
@@ -235,3 +236,14 @@ class ScoutingTest(unittest.TestCase):
     mx = max(util.ManhDist(p.me.xy, xy) for xy in context.allies)
     self.assertLessEqual(mx, 3)
 
+  def testLayOnTheFloor(self):
+    strat, context = ContextFromFile('624_22_1_map06')
+    move = Move()
+    global_vars.LAST_ENEMY_POSITION = [Point(15, 13)]
+    plan = strat.RealMove(context, move)
+    print plan
+
+    p = actions.Position(context)
+    for a in plan:
+      a.Apply(p)
+    self.assertLessEqual(p.me.stance, TrooperStance.PRONE)

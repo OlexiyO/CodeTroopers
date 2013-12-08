@@ -105,7 +105,6 @@ def _CheckPlayersOrder(context):
     return
 
   # TODO: Account for guys which were seen before last move.
-  # TODO: Update battle simulator order
   for unit_id, confidence in UnitsMoved(context):
     if unit_id.unit_type == context.me.type:
       global_vars.SetPlayerOrder(unit_id.player_id, PlayerOrder.BEFORE_ME, confidence)
@@ -148,8 +147,11 @@ class MyStrategy(object):
         if ally.stance == TrooperStance.STANDING:
           assert ally.shooting_range == global_vars.SNIPER_SHOOTING_RANGE, (ally.shooting_range, global_vars.SNIPER_SHOOTING_RANGE)
     self.FillCornersOrder(context)
-    p1, p2 = global_vars.ORDER_OF_CORNERS[0], global_vars.ORDER_OF_CORNERS[3]
-    p3 = Point((p1.x*2 + p2.x) / 3, (p1.y*2 + p2.y) / 3)
+    if map_util.MapName(context) == 'fefer':
+      p3 = Point(X / 2, Y / 2)
+    else:
+      p1, p2 = global_vars.ORDER_OF_CORNERS[0], global_vars.ORDER_OF_CORNERS[3]
+      p3 = Point((p1.x*2 + p2.x) / 3, (p1.y*2 + p2.y) / 3)
     global_vars.SetNextGoal(context, util.ClosestEmptyCell(context, p3))
     global_vars.UNITS_IN_GAME = len([t for t in context.world.troopers if t.teammate])
     global_vars.ORDER_OF_PLAYERS = {player.id: global_vars.PlayerOrder.UNKNOWN for player in context.world.players}
@@ -379,6 +381,7 @@ class MyStrategy(object):
       util.MOVE_TIMES[context.world.move_index] = util.MOVE_TIMES.get(context.world.move_index, 0) + (t1 - t0)
       return plan
     else:
+      print 'Last seen:', global_vars.LAST_ENEMY_POSITION
       return scouting.ScoutingMove(context, move)
 
   def FillCornersOrder(self, context):

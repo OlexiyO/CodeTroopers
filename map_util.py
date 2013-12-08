@@ -4,7 +4,8 @@ HEX_DIGESTS = {
   '3f96d08acaa3e9e119e3d2132350e2cb': 'map03',
   '0b939d75af93ae8e8c01b5d17faa7dd1': 'cheeser',
   'a0a6a9631a915a30e800f638d6a388b0': 'map02',
-  '3c247ecf6cf98406aa33e689dbe05592': 'map06'
+  '3c247ecf6cf98406aa33e689dbe05592': 'map06',
+  'c4c783d9803057efbd042bd60943c712': 'fefer',
   }
 
 

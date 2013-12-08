@@ -155,16 +155,7 @@ def EnemyRuns(simulator, context, position):
 
 @util.TimeMe
 def SafetyBonus(simulator, context, position):
-  suspicious_cells = set(enemies_xy)
-  xy = position.me.xy
-  for exy in enemies_xy:
-    for d in ALL_DIRS:
-      p1 = PointAndDir(exy, d)
-      if context.IsPassable(p1):
-        suspicious_cells.add(p1)
-
-  dangerous_cells = len([p for p in suspicious_cells
-                         if util.IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])
+  dangerous_cells = util.HowCanEnemySeeUs(context, position, enemies_xy)
   invisible_enemy_danger = -dangerous_cells / 10.
   bonus_mult = 0
   if not simulator.SomeEnemySeesUs():

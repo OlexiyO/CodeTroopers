@@ -254,3 +254,16 @@ def ClosestEmptyCell(context, to):
 
 def NormalizePosition(xy):
   return Point(min(xy.x, X - 1 - xy.x), min(xy.y, Y - 1 - xy.y))
+
+
+def HowCanEnemySeeUs(context, position, enemies_xy):
+  suspicious_cells = set(enemies_xy)
+  xy = position.me.xy
+  for exy in enemies_xy:
+    for d in ALL_DIRS:
+      p1 = PointAndDir(exy, d)
+      if context.IsPassable(p1):
+        suspicious_cells.add(p1)
+
+  return len([p for p in suspicious_cells
+              if IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])

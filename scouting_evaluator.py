@@ -12,16 +12,16 @@ def EvaluatePosition(context, position):
     too_far_penalty = 0
     walk_too_far = 0
     dont_go_before_scout_penalty = 0
-    scouting_score = 0
+    visible_for_enemy_score = 0
   else:
     too_far = max(3, util.ManhDist(position.me.xy, global_vars.POSITION_AT_START_MOVE))
     walk_too_far = -5000 * (too_far - 3)
     too_far_penalty = TooFarFromHerdPenalty(context, position) * -10000
     dont_go_before_scout_penalty = DontGoBeforeScoutPenalty(context, position) * -1000
-    scouting_score = 0 # -position.min_dist_to_goal * .1
+    visible_for_enemy_score = util.HowCanEnemySeeUs(context, position, global_vars.LAST_ENEMY_POSITION) * params.THEY_DONT_SEE_US_BONUS
 
   benefit_score = _BenefitScore(context, position)
-  return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty + scouting_score
+  return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty + visible_for_enemy_score
 
 
 def DontGoBeforeScoutPenalty(context, position):

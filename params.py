@@ -2,7 +2,7 @@ from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
 
 KILL_EXTRA_PROFIT = 50
-# TODO: Heal discount --> 1.25
+# TODO: Heal discount --> 1.25 for > 2 players
 HEAL_DISCOUNT = 1.  # Healing one point to yourself is that much worse than doing 1 point of damage.
 SELF_KILL_PENALTY = 50   # Healing discount is NOT applied.
 
