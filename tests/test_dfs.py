@@ -43,6 +43,14 @@ class ReliabilityTest(unittest.TestCase):
 
 class BattleTest(unittest.TestCase):
 
+  def testShootShootShoot(self):
+    strat, context = ContextFromFile('090_3_2_map06')
+    move = Move()
+    plan = strat.RealMove(context, move)
+    print plan
+    self.assertEqual(move.action, ActionType.SHOOT)
+    self.assertEqual(Point(move.x, move.y), Point(23, 2))
+
   def testRunTowardsEnemy(self):
     strat, context = ContextFromFile('065_3_2_map05')
     move = Move()

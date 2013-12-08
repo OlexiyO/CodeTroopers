@@ -15,7 +15,7 @@ config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='cheeser',
+                               map_name='map06',
                                team_size=TEAM_SIZE,
                                my_player_index=my_player_index)
 import time

@@ -18,7 +18,7 @@ def EvaluatePosition(context, position):
     walk_too_far = -5000 * (too_far - 3)
     too_far_penalty = TooFarFromHerdPenalty(context, position) * -10000
     dont_go_before_scout_penalty = DontGoBeforeScoutPenalty(context, position) * -1000
-    visible_for_enemy_score = util.HowCanEnemySeeUs(context, position, global_vars.LAST_ENEMY_POSITION) * params.THEY_DONT_SEE_US_BONUS
+    visible_for_enemy_score = 0 # util.HowCanEnemySeeUs(context, position, global_vars.LAST_ENEMY_POSITION) * params.THEY_DONT_SEE_US_BONUS
 
   benefit_score = _BenefitScore(context, position)
   return benefit_score + too_far_penalty + walk_too_far + dont_go_before_scout_penalty + visible_for_enemy_score
