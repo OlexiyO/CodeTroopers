@@ -1,6 +1,6 @@
 from collections import namedtuple
 import math
-from constants import Point, ALL_DIRS, PointAndDir
+from constants import ALL_DIRS
 import global_vars
 from global_vars import PlayerOrder
 from model.TrooperStance import TrooperStance
@@ -101,7 +101,7 @@ class BattleSimulator(object):
       for t, hp in enumerate(self.allies_hp):
         if hp > 0 and they_shoot_us[enemy_index][t]:
           dmg_done_here = min(max_possible, hp)
-          score_here = params.SELF_KILL_PENALTY + hp if max_possible >= hp else max_possible
+          score_here = params.KILL_EXTRA_PROFIT + hp if max_possible >= hp else max_possible
           if score_here > score:
             ind, score, dmg_done = t, score_here, dmg_done_here
       if dmg_done == 0:
@@ -133,7 +133,7 @@ def EnemyFights(simulator, context, position):
       lost += prediction_discount * simulator.EnemyShot(turn.unit)
   if not simulator.i_shoot_them:
     gained -= global_vars.distances[position.me.xy.x][position.me.xy.y][enemies_xy[0].x][enemies_xy[0].y] * .3
-  return gained, lost
+  return gained - lost
 
 
 @util.TimeMe
@@ -153,26 +153,40 @@ def EnemyRuns(simulator, context, position):
   return gained
 
 
+# Count how many cells we don't see, but enemy can see us from there.
+def PotentialDanger(context, position, enemies_xy):
+  suspicious_cells = set(enemies_xy)
+  xy = position.me.xy
+  for exy in enemies_xy:
+    for d in ALL_DIRS:
+      p1 = util.PointAndDir(exy, d)
+      if context.IsPassable(p1):
+        suspicious_cells.add(p1)
+
+  return len([p for p in suspicious_cells
+              if util.IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])
+
 @util.TimeMe
 def SafetyBonus(simulator, context, position):
-  dangerous_cells = util.HowCanEnemySeeUs(context, position, enemies_xy)
+  dangerous_cells = PotentialDanger(context, position, enemies_xy)
   invisible_enemy_danger = -dangerous_cells / 10.
   bonus_mult = 0
   if not simulator.SomeEnemySeesUs():
     bonus_mult += 1
   if dangerous_cells == 0:
     bonus_mult += 1
-  they_dont_see_us_bonus = bonus_mult * params.THEY_DONT_SEE_US_BONUS
+  they_dont_see_us_bonus = bonus_mult * params.ENEMIES_DONT_SEE_US_BONUS
   return invisible_enemy_danger + they_dont_see_us_bonus
 
 
 @util.TimeMe
 def PredictBattle(context, position):
+  # Creating simulator is slow; create it once, and reset allies_hp and enemies_hp.
   simulator = BattleSimulator(context, position)
   ahp, ehp = list(simulator.allies_hp), list(simulator.enemies_hp)
-  gained, lost = EnemyFights(simulator, context, position)
+  gain_if_opponent_fights = EnemyFights(simulator, context, position)
   simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
-  gain_if_they_run = EnemyRuns(simulator, context, position)
+  gain_if_opponent_runs = EnemyRuns(simulator, context, position)
   simulator.allies_hp, simulator.enemies_hp = list(ahp), list(ehp)
   everything_illuminated = (context.IsDuel() and
                             len([e for e in position.enemies_hp if e > 0]) == sum(global_vars.ALIVE_ENEMIES))
@@ -180,7 +194,7 @@ def PredictBattle(context, position):
     safety_bonus = 0
   else:
     safety_bonus = SafetyBonus(simulator, context, position)
-  return safety_bonus + min(gained - lost * params.HEAL_DISCOUNT, gain_if_they_run)
+  return safety_bonus + min(gain_if_opponent_fights, gain_if_opponent_runs)
 
 
 # What do we store

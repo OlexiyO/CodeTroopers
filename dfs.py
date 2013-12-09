@@ -1,7 +1,7 @@
 import itertools
 from actions import *
 import battle_simulator
-from constants import PointAndDir, ALL_DIRS
+from constants import ALL_DIRS
 import global_vars
 import util
 
@@ -35,29 +35,31 @@ class Searcher(object):
     self.pos.action_points = ap
     self.bestActions = [NoneAction(context)]
     self.context = context
-    self.total_count = 0
+    self.dfs_calls = 0
     self.moves = [None] * 25
     self.to_undo = [None] * 25
-    self.index = 0
+    self.dfs_depth = 0
     self._DFS(can_walk=True)
-    M.append((self.total_count, global_vars.TURN_INDEX))
+    M.append((self.dfs_calls, global_vars.TURN_INDEX))
     context.me = old_me
     best_act = self.bestActions[0]
     best_act.SetMove(self.pos, move)
-    print 'Goal:', global_vars.NextGoal(), ' Plan:', self.bestActions
+    self._SetFollowingActions()
+    return self.bestActions
+
+  def _SetFollowingActions(self):
     global_vars.FORCED_ACTIONS = []
-    global_vars.FORCED_MOVE_ID = context.world.move_index, self.pos.me.type
-    global_vars.FORCED_MOVE_WITH_ENEMIES = bool(context.enemies)
+    global_vars.FORCED_MOVE_ID = self.context.world.move_index, self.pos.me.type
+    global_vars.FORCED_MOVE_WITH_ENEMIES = bool(self.context.enemies)
     for n, act in enumerate(self.bestActions):
       if n > 0:
         if isinstance(self.bestActions[n - 1], (UseMedikit, FieldMedicHeal, LowerStance, Energizer, ThrowGrenade, Shoot)):
           global_vars.FORCED_ACTIONS.append(act)
         else:
-          break
-    return self.bestActions
+          return
 
   def PrevMove(self):
-    return self.moves[self.index - 1] if self.index > 0 else None
+    return self.moves[self.dfs_depth - 1] if self.dfs_depth > 0 else None
 
   def _Try(self, actions, can_walk):
     actions = actions if isinstance(actions, list) else [actions]
@@ -74,9 +76,9 @@ class Searcher(object):
       if not act.Allowed(self.pos):
         success = False
         break
-      self.moves[self.index] = act
-      self.to_undo[self.index] = act.Apply(self.pos)
-      self.index += 1
+      self.moves[self.dfs_depth] = act
+      self.to_undo[self.dfs_depth] = act.Apply(self.pos)
+      self.dfs_depth += 1
       applied += 1
       global CALLS
       CALLS[type(act)] = CALLS.get(type(act), 0) + 1
@@ -87,22 +89,22 @@ class Searcher(object):
       self._DFS(can_walk=can_walk)
 
     for n in range(applied):
-      self.index -= 1
-      self.moves[self.index].Undo(self.pos, self.to_undo[self.index])
+      self.dfs_depth -= 1
+      self.moves[self.dfs_depth].Undo(self.pos, self.to_undo[self.dfs_depth])
     return success
 
   def _DFS(self, can_walk):
-    self.total_count += 1
-    if self.index > 0:
+    self.dfs_calls += 1
+    if self.dfs_depth > 0:
       score = self.evaluate_fn(self.context, self.pos)
       if score > self.bestScore:
-        self.bestScore, self.bestActions = score, list(self.moves[:self.index])
+        self.bestScore, self.bestActions = score, list(self.moves[:self.dfs_depth])
 
     if self.pos.action_points > 0:
       self._TryMoves(can_walk=can_walk)
 
   def _TryMoves(self, can_walk):
-    raise NotImplementedError
+    raise NotImplementedError  # Overridden in children.
 
   def _TryMedikit(self):
     if not self.pos.holding_medikit:
@@ -133,7 +135,7 @@ class Searcher(object):
       if util.NextCell(self.pos.me.xy, ally.xy):
         time_to_heal = True
       elif ally_type == self.pos.me.type:
-        time_to_heal = (self.index == 0 or isinstance(self.PrevMove(), Energizer))
+        time_to_heal = (self.dfs_depth == 0 or isinstance(self.PrevMove(), Energizer))
       if time_to_heal:
         hp_per_ap = (self.context.game.field_medic_heal_self_bonus_hitpoints
                      if ally_type == self.pos.me.type else
@@ -160,7 +162,7 @@ class Searcher(object):
       points_left -= move_cost
 
       for d in ALL_DIRS:
-        p1 = PointAndDir(p, d)
+        p1 = util.PointAndDir(p, d)
         if self.context.IsPassable(p1) and data[p1.x][p1.y] < points_left:
           data[p1.x][p1.y] = points_left
           if p1 not in self.context.allies and p1 not in self.context.enemies:
@@ -201,10 +203,10 @@ class BattleSearcher(Searcher):
   def _TryEnergizer(self):
     if not self.pos.holding_field_ration or self.pos.action_points >= self.pos.me.initial_action_points:
       return
-    if self.index > 0:
+    if self.dfs_depth > 0:
       prev_move = self.PrevMove()
       if not isinstance(prev_move, (Energizer, Walk)):
-        data = self.to_undo[self.index - 1]
+        data = self.to_undo[self.dfs_depth - 1]
         prev_ap = data[0] if isinstance(data, tuple) else data
         # Could have used energizer last turn
         if prev_ap + self.context.game.field_ration_bonus_action_points <= self.pos.me.initial_action_points:
@@ -219,7 +221,7 @@ class BattleSearcher(Searcher):
 
   def _TryShoot(self):
     options = [xy for xy in self.context.enemies if Shoot(self.context, xy).Allowed(self.pos)]
-    if self.index > 0 and isinstance(self.PrevMove(), RaiseStance):
+    if self.dfs_depth > 0 and isinstance(self.PrevMove(), RaiseStance):
       self.pos.me.stance -= 1
       # Filter out whoever we could shot on the last turn.
       options = [xy for xy in options if not Shoot(self.context, xy).Allowed(self.pos)]
@@ -238,7 +240,7 @@ class BattleSearcher(Searcher):
     candidates = set(self.context.enemies.iterkeys())
     for xy in self.context.enemies:
       for d in ALL_DIRS:
-        p1 = PointAndDir(xy, d)
+        p1 = util.PointAndDir(xy, d)
         if self.context.IsInside(p1):
           candidates.add(p1)
     for xy in candidates:

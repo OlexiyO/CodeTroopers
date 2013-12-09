@@ -2,7 +2,6 @@ import cPickle as pickle
 import collections
 from copy import deepcopy
 import os
-import time
 from actions import Position
 import actions
 
@@ -18,21 +17,12 @@ import map_util
 from model.ActionType import ActionType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
-import params
 import scouting
 import util
 
+# Remembers bonuses and enemies as we've seen them last time.
 BONUSES = {}
 ENEMIES = {}
-
-VISIBLE_CELLS = None
-KILLED = set()
-# TODO: Change to use PREV_MOVE_ID
-PREV_MOVE_INDEX = None
-PREV_MOVE_TYPE = None
-PREV_ACTION = None
-PREV_XY = None
-
 
 UnitID = collections.namedtuple('UnitID', ['player_id', 'unit_type'])
 MoveID = collections.namedtuple('MoveID', ['move_index', 'unit_type'])
@@ -41,19 +31,23 @@ def UID(unit):
   return UnitID(unit.player_id, unit.type)
 
 
+PREV_MOVE_ID = MoveID(-1, -1)
+
 # To detect which player moves first.
 # Ids are "who did we see" (UnitID). Values are where and when did we see them: (xy, MoveID)
 ENEMIES_SEEN_LAST_TURN = {}
 ALLIES_HISTORY = {}
 ENEMIES_HISTORY = {}
 LAST_NON_CONT_MOVE = None
+# Enemies we killed for sure (useful for knowing when enemy didn't move, but was killed).
+KILLED = set()
 
 
 def VisibleBySomeone(context, allies, enemy):
   return any(util.CanSee(context, ally, enemy) for ally in allies)
 
 
-def SmthChanged(old_enemy, new_enemy):
+def EnemyMoved(old_enemy, new_enemy):
   return (old_enemy.xy != new_enemy.xy or
           old_enemy.stance != new_enemy.stance or
           old_enemy.holding_grenade != new_enemy.holding_grenade or
@@ -62,10 +56,11 @@ def SmthChanged(old_enemy, new_enemy):
 
 
 def UnitsMoved(context):
-  global ALLIES_HISTORY, ENEMIES_HISTORY, LAST_NON_CONT_MOVE, KILLED
-  if LAST_NON_CONT_MOVE.move_index is None:
-    # Very first move
-    return
+  # Finds all units which moved since last move.
+  # Returns (unit_id, confidence) -- unit_id is unit which moved; confidence is how sure we are that it moved:
+  # *) If unit was not there before, and is visible now -- we are sure it moved; confidence is 2
+  # *) If unit was there before, and now disappeared -- he can be killed by some other player; confidence is 1.
+  global ALLIES_HISTORY, ENEMIES_HISTORY, LAST_NON_CONT_MOVE
   old_allies = ALLIES_HISTORY[LAST_NON_CONT_MOVE]
   new_allies = context.allies.values()
   old_enemies = ENEMIES_HISTORY[LAST_NON_CONT_MOVE]
@@ -75,7 +70,7 @@ def UnitsMoved(context):
     old_enemy = old_enemies.get(unit_id, None)
     new_enemy = new_enemies.get(unit_id, None)
     if old_enemy is not None and new_enemy is not None:
-      if SmthChanged(old_enemy, new_enemy):
+      if EnemyMoved(old_enemy, new_enemy):
         yield unit_id, 2
     elif old_enemy is None:
       assert new_enemy is not None
@@ -88,8 +83,8 @@ def UnitsMoved(context):
         yield unit_id, 1
 
 
-def _CheckPlayersOrder(context):
-  global ALLIES_HISTORY, ENEMIES_HISTORY, PREV_MOVE_INDEX, PREV_MOVE_TYPE, LAST_NON_CONT_MOVE
+def _UpdatePlayersOrder(context):
+  global ALLIES_HISTORY, ENEMIES_HISTORY, PREV_MOVE_ID, LAST_NON_CONT_MOVE
   current_move_id = MoveID(context.world.move_index, context.me.type)
   if IsContinuingMove(context):
     ALLIES_HISTORY[current_move_id].append(deepcopy(context.me))
@@ -97,14 +92,16 @@ def _CheckPlayersOrder(context):
       ENEMIES_HISTORY[current_move_id][UID(enemy)] = deepcopy(enemy)
   else:
     ALLIES_HISTORY[current_move_id] = [deepcopy(ally) for ally in context.allies.itervalues()]
-    LAST_NON_CONT_MOVE = MoveID(PREV_MOVE_INDEX, PREV_MOVE_TYPE)
+    LAST_NON_CONT_MOVE = PREV_MOVE_ID
     ENEMIES_HISTORY[current_move_id] = {UID(enemy): deepcopy(enemy) for enemy in context.enemies.itervalues()}
 
+  if LAST_NON_CONT_MOVE.move_index < 0:
+    # Very-very first turn. No info.
+    return
   if context.me.type == LAST_NON_CONT_MOVE.unit_type:
-    # Only one unit left. Anyone could have moved.
+    # Only one our unit left. Anyone could have moved.
     return
 
-  # TODO: Account for guys which were seen before last move.
   for unit_id, confidence in UnitsMoved(context):
     if unit_id.unit_type == context.me.type:
       global_vars.SetPlayerOrder(unit_id.player_id, PlayerOrder.BEFORE_ME, confidence)
@@ -128,8 +125,7 @@ def UnitsMoveInOrder(u1, u2, u3):
 
 
 def IsContinuingMove(context):
-  global PREV_MOVE_INDEX, PREV_MOVE_TYPE
-  return context.world.move_index == PREV_MOVE_INDEX and context.me.type == PREV_MOVE_TYPE
+  return MoveID(context.world.move_index, context.me.type) == PREV_MOVE_ID
 
 
 class MyStrategy(object):
@@ -147,6 +143,7 @@ class MyStrategy(object):
         if ally.stance == TrooperStance.STANDING:
           assert ally.shooting_range == global_vars.SNIPER_SHOOTING_RANGE, (ally.shooting_range, global_vars.SNIPER_SHOOTING_RANGE)
     self.FillCornersOrder(context)
+    # Algorithm sucks if gets stuck on the longer side of fefer map. Make him go mid.
     if map_util.MapName(context) == 'fefer':
       p3 = Point(X / 2, Y / 2)
     else:
@@ -159,14 +156,7 @@ class MyStrategy(object):
     if global_vars.STDOUT_LOGGING:
       print 'Start from', context.me.x, context.me.y
 
-    t = time.time()
     util._PrecomputeDistances(context)
-    util._FillCellImportance(context)
-    print util.TOTAL_TIME
-    dt = time.time() - t
-    if global_vars.STDOUT_LOGGING:
-      print 'Init in: %.2f' % dt
-
     global_vars.INITIALIZED = True
 
   def _PreMove(self, context):
@@ -177,19 +167,13 @@ class MyStrategy(object):
     if not IsContinuingMove(context):
       global_vars.POSITION_AT_START_MOVE = context.me.xy
     # Check players order BEFORE updating enemies.
-    _CheckPlayersOrder(context)
+    _UpdatePlayersOrder(context)
     # Update enemies.
     self._MergeEnemiesInfo(context)
     self._MergeBonusesInfo(context)
-    self._MergeVisibleCells(context)
-
-  def _MergeVisibleCells(self, context):
-    global VISIBLE_CELLS
-    if IsContinuingMove(context):
-      context.MergeVisibleCells(VISIBLE_CELLS)
-    VISIBLE_CELLS = context.visible_cells
 
   def _MergeBonusesInfo(self, context):
+    # Update everything we know about bonuses.
     global BONUSES
     if IsContinuingMove(context):
       res = {p: b for p, b in BONUSES.iteritems() if p != context.me.xy}
@@ -202,14 +186,12 @@ class MyStrategy(object):
     BONUSES = res
 
   def _MergeEnemiesInfo(self, context):
-    # TODO: Don't totally drop enemies between turns.
     global ENEMIES
-    global PREV_ACTION
     if IsContinuingMove(context):
       res = ENEMIES
-    elif context.me.type != PREV_MOVE_TYPE:
+    elif context.me.type != PREV_MOVE_ID.unit_type:
       def CanSeeHim(enemy):
-        # If I can see him, he'll be in the context.enemies list.
+        # If I can see him, he'll be in the context.enemies anyway.
         return any(util.CanSee(context, ally, enemy) for ally in context.allies.itervalues())
 
       def ReliableInfo(enemy):
@@ -218,13 +200,13 @@ class MyStrategy(object):
           return True
         if enemy.type == context.me.type:
           return global_vars.GetPlayerOrder(enemy) == PlayerOrder.AFTER_ME
-        if enemy.type == PREV_MOVE_TYPE:
+        if enemy.type == PREV_MOVE_ID.unit_type:
           return global_vars.GetPlayerOrder(enemy) == PlayerOrder.BEFORE_ME
-        return not UnitsMoveInOrder(PREV_MOVE_TYPE, enemy.type, context.me.type)
+        return not UnitsMoveInOrder(PREV_MOVE_ID.unit_type, enemy.type, context.me.type)
 
       res = dict([(p, enemy) for p, enemy in ENEMIES.iteritems() if ReliableInfo(enemy) and not CanSeeHim(enemy)])
     else:
-      # Only one unit left. Everyone had a chance to move.
+      # Only one unit left. Every enemy had a chance to move.
       res = {}
 
     for xy, enemy in context.enemies.iteritems():
@@ -252,7 +234,7 @@ class MyStrategy(object):
       dmg = context.game.grenade_direct_damage
       self.AdjustEnemiesToDmg(xy, dmg)
       for d in ALL_DIRS:
-        self.AdjustEnemiesToDmg(PointAndDir(xy, d), context.game.grenade_collateral_damage)
+        self.AdjustEnemiesToDmg(util.PointAndDir(xy, d), context.game.grenade_collateral_damage)
 
   def MaybeSaveLog(self, context):
     if constants.LOG_DIR is None:
@@ -269,15 +251,16 @@ class MyStrategy(object):
     context.world.cell_visibilities = cv
 
   def ReactAtPass(self, context, move):
+    # If smart algorithm decided to pass, see maybe we can do something safe and good.
     me = context.me
 
+    # If there is an point we can not see, but we can shoot -- shoot at it.
     if me.action_points >= me.shoot_cost:
-      # We already made some moves. If there is still energy -- lets randomly shoot in any direction.
       my_shooting_range = util.ShootingRange(context, me)
       def ShootInvisible(where):
         if where in context.allies:
           return False
-        for S in params.ALL_STANCES:
+        for S in constants.ALL_STANCES:
           can_see = False
           for p in context.allies.itervalues():
             discount = 0 if p.type == TrooperType.SCOUT else context.game.sniper_prone_stealth_bonus
@@ -287,25 +270,28 @@ class MyStrategy(object):
             return True
         return False
 
-      bd = 1000
+      # Shoot at the closest point we can not see.
+      best_dist = 1000
       found = False
       for x in range(int(me.x - my_shooting_range), int(me.x + my_shooting_range + 1.01)):
         for y in range(int(me.y - my_shooting_range), int(me.y + my_shooting_range + 1.01)):
           where = Point(x, y)
           if context.IsPassable(where):
-            value = util.ManhDist(where, global_vars.NextGoal()) #global_vars.cell_vision[TrooperStance.PRONE][x][y] - len(global_vars.cell_dominated_by[TrooperStance.PRONE][x][y])
-            if value < bd and ShootInvisible(where):
+            value = util.ManhDist(where, global_vars.NextGoal())
+            if value < best_dist and ShootInvisible(where):
               move.action = ActionType.SHOOT
               move.x, move.y = x, y
-              bd = value
+              best_dist = value
               found = True
 
       if found:
         return
+
+    # Try to make a step further, and then run back here -- to see if there are enemies.
     if me.action_points >= 2 * util.MoveCost(context, me.stance):
       g = global_vars.NextGoal()
       for d in ALL_DIRS:
-        p1 = PointAndDir(me.xy, d)
+        p1 = util.PointAndDir(me.xy, d)
         if context.CanMoveTo(p1) and util.ManhDist(p1, g) < util.ManhDist(me.xy, g):
           move.action = ActionType.MOVE
           move.x, move.y = p1.x, p1.y
@@ -313,8 +299,9 @@ class MyStrategy(object):
           global_vars.FORCED_MOVE_ID = context.world.move_index, me.type
           global_vars.FORCED_MOVE_WITH_ENEMIES = bool(context.enemies)
           return
-    # Try this:
-    if me.action_points >= 2 and me.stance == TrooperStance.STANDING:
+
+    # Lower stance to stay low.
+    if me.action_points >= context.game.stance_change_cost and me.stance == TrooperStance.STANDING:
       move.action = ActionType.LOWER_STANCE
       return
 
@@ -344,11 +331,8 @@ class MyStrategy(object):
           with open('C:/Coding/CodeTroopers/bad_context.pickle', 'w') as fout:
             pickle.dump(context, fout)
           assert False
-    global PREV_MOVE_TYPE, PREV_MOVE_INDEX, PREV_ACTION, PREV_XY
-    PREV_MOVE_TYPE = me.type
-    PREV_MOVE_INDEX = world.move_index
-    PREV_ACTION = move.action
-    PREV_XY = me.xy
+    global PREV_MOVE_ID
+    PREV_MOVE_ID = MoveID(world.move_index, me.type)
     global_vars.TURN_INDEX += 1
 
   def CombatMove(self, context, move):

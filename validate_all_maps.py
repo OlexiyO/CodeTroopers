@@ -1,3 +1,4 @@
+# Run current version against older version multiple times on all maps.
 from collections import deque
 import os
 from subprocess import call

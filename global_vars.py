@@ -1,7 +1,7 @@
+# Global walking distances between cells.
 distances = []
-cell_vision = []
-cell_dominated_by = []
 
+# Helper variables for debugging / logging.
 AT_HOME = False
 INITIALIZED = False
 STDOUT_LOGGING = True
@@ -9,27 +9,32 @@ TURN_INDEX = 0
 FIRST_MOVES_RANDOM = 0
 
 UNITS_IN_GAME = None
+# For example: Medic goes first, then Sniper, ...
 UNITS_ORDER = []
+# How to go around the map.
 ORDER_OF_CORNERS = None
 ITERATION_ORDER = 1  # 3 == Go along long wall first
 NEXT_CORNER = ITERATION_ORDER
 NEXT_GOAL = None
 
-FORCED_MOVE_ID = None
+# Once we do computations, remember what we have to do here, and do not recompute.
 FORCED_ACTIONS = []
+FORCED_MOVE_ID = None
 FORCED_MOVE_WITH_ENEMIES = False
 LAST_SEEN_ENEMIES = 0
 LAST_SWITCHED_GOAL = 0
 LAST_ENEMY_POSITION = []
 ALIVE_ENEMIES = [True] * 5
 
+# For each player, whether he goes after or before me.
 class PlayerOrder(object):
   UNKNOWN = 0
   BEFORE_ME = 1
   AFTER_ME = 2
 
-
+# Maps player_id --> PlayerOrder
 ORDER_OF_PLAYERS = None
+# Sometimes we find order from not-guaranteed signals. For each player, know how confident we are if he goes before / after us.
 CONFIDENCE_ORDER = None
 
 SNIPER_SHOOTING_RANGE = 10
@@ -74,17 +79,12 @@ def SetPlayerOrder(player_id, order, confidence):
   if ORDER_OF_PLAYERS[player_id] == PlayerOrder.UNKNOWN:
     ORDER_OF_PLAYERS[player_id] = order
     CONFIDENCE_ORDER[player_id] = confidence
-    print
-    print
-    print
-    print 'ORDER:', player_id, order
   else:
     if ORDER_OF_PLAYERS[player_id] != order:
       if CONFIDENCE_ORDER[player_id] < confidence:
-        print 'Overriding order:', player_id, order
         ORDER_OF_PLAYERS[player_id] = order
       else:
-        print 'Conflicting order: old vs new:', player_id, ORDER_OF_PLAYERS[player_id], order
+        print 'Player order error:', player_id, ORDER_OF_PLAYERS[player_id], order
     else:
       CONFIDENCE_ORDER[player_id] = max(confidence, CONFIDENCE_ORDER[player_id])
 

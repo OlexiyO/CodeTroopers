@@ -1,3 +1,4 @@
+# Run current version against older version multiple times on one map.
 from collections import namedtuple
 import tempfile
 import random

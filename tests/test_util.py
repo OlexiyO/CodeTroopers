@@ -20,8 +20,6 @@ def ContextFromFile(filename):
   global_vars.UNITS_ORDER = context.UNITS_ORDER
   global_vars.NEXT_CORNER = context.NEXT_CORNER
   global_vars.ORDER_OF_CORNERS = context.ORDER_OF_CORNERS
-  context._FillVisibleCells()
-  context._FillDistancesFromMe()
   context.map_name = map_util.MapName(context)
   s.FillCornersOrder(context)
   global_vars.FORCED_ACTIONS = []

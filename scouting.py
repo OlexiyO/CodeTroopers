@@ -1,3 +1,4 @@
+# How to walk around the map if we didn't see any enemy.
 from constants import *
 from dfs import ScoutingSearcher
 import global_vars
@@ -8,16 +9,8 @@ import scouting_evaluator
 import util
 
 
-def StanceForRunning(context, trooper):
-  #if context.MapIsOpen() and trooper.type == TrooperType.SNIPER:
-  #  return TrooperStance.KNEELING
-  #else:
-  return TrooperStance.STANDING
-
-
 @util.TimeMe
 def ScoutingMove(context, move):
-  # Leave 2 steps.
   DELAY = 5  # How many turns to wait before sending an airplane.
   if context.me.type == TrooperType.COMMANDER:
     my_index = context.me.player_id
@@ -33,22 +26,13 @@ def ScoutingMove(context, move):
     move.action = ActionType.REQUEST_ENEMY_DISPOSITION
     return ['Request']
   CheckIfAchievedGoal(context)
-  #all_allies = [x for x in context.allies] + [context.me.xy]
-  #max_d = max(max(util.ManhDist(a, b) for a in all_allies) for b in all_allies)
-  #if max_d > params.
   if global_vars.LAST_SEEN_ENEMIES < context.world.move_index - DELAY and global_vars.LAST_SWITCHED_GOAL < context.world.move_index - 8:
     global_vars.SwitchToNextGoal(context.world.move_index)
 
-  if context.me.action_points >= 2:
-    if context.me.stance < StanceForRunning(context, context.me):
+  if context.me.action_points >= 2 and context.me.stance != TrooperStance.STANDING:
       move.action = ActionType.RAISE_STANCE
-      return
-    elif context.me.stance > StanceForRunning(context, context.me):
-      move.action = ActionType.LOWER_STANCE
-      return
-
-  searcher = ScoutingSearcher()
-  return searcher.DoSearch(scouting_evaluator.EvaluatePosition, context, move)
+  else:
+    return ScoutingSearcher().DoSearch(scouting_evaluator.EvaluatePosition, context, move)
 
 
 def CheckIfAchievedGoal(context):

@@ -1,3 +1,4 @@
+# Utility to run fight vs older version of the strategy.
 import util
 from utilities import server_util
 from utilities.create_config import CreateConfigFile
@@ -15,7 +16,7 @@ config_file = CreateConfigFile(output_filepath=output_filepath,
                                base_port=base_port,
                                seed=SHARED_ID,
                                render='true',
-                               map_name='map06',
+                               map_name='map04',
                                team_size=TEAM_SIZE,
                                my_player_index=my_player_index)
 import time

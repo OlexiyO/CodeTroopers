@@ -1,14 +1,11 @@
-import math
 import os
 import datetime
 from constants import *
 import constants
 import global_vars
 from model.BonusType import BonusType
-from model.CellType import CellType
 from model.TrooperStance import TrooperStance
 from model.TrooperType import TrooperType
-import params
 
 
 def MoveCost(context, trooper_stance):
@@ -32,26 +29,16 @@ def ShootDamage(trooper):
     return trooper.prone_damage
 
 
-def WithinRange(pa, pb, max_range):
-  return (pa.x - pb.x) ** 2 + (pa.y - pb.y) ** 2 <= max_range ** 2
-
-
 def NextCell(pa, pb):
   return abs(pa.x - pb.x) + abs(pa.y - pb.y) == 1
-
-
-def ReduceHP(hp, dmg):
-  return max(0, hp - dmg)
 
 
 TOTAL_TIME = {}
 MOVE_TIMES = {}
 import time
 
-def TimeMe(func):
-  #if not (global_vars.AT_HOME and global_vars.STDOUT_LOGGING):
-  return func
 
+def TimeMe(func):
   def Wrapped(*args, **kwargs):
     x = time.time()
     r = func(*args, **kwargs)
@@ -65,6 +52,7 @@ def TimeMe(func):
 
 @TimeMe
 def IsVisible(context, max_range, viewer_x, viewer_y, viewer_stance, object_x, object_y, object_stance):
+  # Take original World.IsVisible, and make it faster.
   if (object_x - viewer_x) ** 2 + (object_y - viewer_y) ** 2 > max_range * max_range:
     return False
   min_stance_index = min(viewer_stance, object_stance)
@@ -73,6 +61,7 @@ def IsVisible(context, max_range, viewer_x, viewer_y, viewer_stance, object_x, o
 
 
 def GetName(enum_type, field_value):
+  # Print enum numbers in a pretty way ("MEDIC STANDING" instead of "1 2")
   for name in dir(enum_type):
     if not name.startswith('_') and getattr(enum_type, name) == field_value:
       return name
@@ -114,51 +103,6 @@ def _PrecomputeDistances(context):
                 q[lastp] = p1
                 lastp += 1
           global_vars.distances[x_][y_] = data
-
-
-def _ComputeCellImportance(context, x, y, stance, R):
-  dominated_by = []
-  vision = 0
-  for dx in range(-R, R + 1):
-    for dy in range(-R, R + 1):
-      p1 = Point(x + dx, y + dy)
-      if context.IsPassable(p1):
-        if IsVisible(context, R, x, y, stance, p1.x, p1.y, stance):
-          vision += 1
-        if IsVisible(context, R, p1.x, p1.y, stance, x, y, stance):
-          dominated_by.append(p1)
-  return vision, dominated_by
-
-
-@TimeMe
-def _FillCellImportance(context):
-  global_vars.cell_vision = []
-  global_vars.cell_dominated_by = []
-  for stance in params.ALL_STANCES:
-    importance, dominated_by = _CellVisionForStance(context, stance)
-    global_vars.cell_vision.append(importance)
-    global_vars.cell_dominated_by.append(dominated_by)
-
-
-def _CellVisionForStance(context, stance):
-  R = 8
-  dominated_by = Array2D(None)
-  vision = Array2D(0)
-  for x_ in xrange(X):
-    for y_ in xrange(Y):
-      if context.world.cells[x_][y_] != CellType.FREE:
-        continue
-      if x_ < X / 2 and y_ < Y / 2:
-        vision[x_][y_], dominated_by[x_][y_] = _ComputeCellImportance(context, x_, y_, stance, R)
-      elif x_ >= X / 2:
-        x1 = X - x_ - 1
-        vision[x_][y_] = vision[x1][y_]
-        dominated_by[x_][y_] = [Point(X - p.x - 1, p.y) for p in dominated_by[x1][y_]]
-      elif y_ >= Y / 2:
-        y1 = Y - y_ - 1
-        vision[x_][y_] = vision[x_][y1]
-        dominated_by[x_][y_] = [Point(p.x, Y - p.y - 1) for p in dominated_by[x_][y1]]
-  return vision, dominated_by
 
 
 def HasBonus(trooper, bonus_type):
@@ -215,17 +159,18 @@ def Array2D(value, x=X, y=Y):
   return [list(array_1d) for _ in range(x)]
 
 
-def DPS(unit):
-  return ShootDamage(unit) * (unit.initial_action_points / unit.shoot_cost)
-
-
-def ComputeItemBonuses(context, trooper):
+def ComputeBonusProfit(context, trooper, bonus_type):
+  # For each bonus: how much profit per action point is it (compared to just shooting).
   G = context.game
   dps = trooper.kneeling_damage / float(trooper.shoot_cost)
-  medikit_bonus = max(0, .5 * (G.medikit_bonus_hitpoints + G.medikit_heal_self_bonus_hitpoints) - dps * G.medikit_use_cost)
-  energy_bonus = max(0, (G.field_ration_bonus_action_points - G.field_ration_eat_cost) * dps)
-  grenade_bonus = max(0, (G.grenade_direct_damage - G.grenade_throw_cost * dps))
-  return [medikit_bonus, energy_bonus, grenade_bonus]
+  if bonus_type == BonusType.MEDIKIT:
+    # We can heal ourselves or someone else -- so compute average of those two things.
+    return max(0, .5 * (G.medikit_bonus_hitpoints + G.medikit_heal_self_bonus_hitpoints) - dps * G.medikit_use_cost)
+  elif bonus_type == BonusType.FIELD_RATION:
+    return max(0, (G.field_ration_bonus_action_points - G.field_ration_eat_cost) * dps)
+  else:
+    assert bonus_type == BonusType.GRENADE, bonus_type
+    return max(0, (G.grenade_direct_damage - G.grenade_throw_cost * dps))
 
 
 def PrintTrooper(trooper):
@@ -252,18 +197,5 @@ def ClosestEmptyCell(context, to):
   return None
 
 
-def NormalizePosition(xy):
-  return Point(min(xy.x, X - 1 - xy.x), min(xy.y, Y - 1 - xy.y))
-
-
-def HowCanEnemySeeUs(context, position, enemies_xy):
-  suspicious_cells = set(enemies_xy)
-  xy = position.me.xy
-  for exy in enemies_xy:
-    for d in ALL_DIRS:
-      p1 = PointAndDir(exy, d)
-      if context.IsPassable(p1):
-        suspicious_cells.add(p1)
-
-  return len([p for p in suspicious_cells
-              if IsVisible(context, 8, p.x, p.y, TrooperStance.STANDING, xy.x, xy.y, position.me.stance)])
+def PointAndDir(p, d):
+  return Point(p.x + d.x, p.y + d.y)

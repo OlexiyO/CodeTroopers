@@ -1,18 +1,10 @@
+"""How to evaluate battle position."""
+
 import battle_simulator
-from constants import Point
-import global_vars
+import constants
 from model.BonusType import BonusType
-from model.TrooperType import TrooperType
 import params
 import util
-
-G = None
-SHOULD_ASSERT = True
-
-class TurnOrder(object):
-  YOURS = 0
-  UNKNOWN = 1
-  MY = 2
 
 
 def EvaluatePosition(context, position):
@@ -25,36 +17,31 @@ def EvaluatePosition(context, position):
 
 
 def _HoldItemsBonus(context, position):
-  scores = util.ComputeItemBonuses(context, position.me)
-  btypes = [BonusType.MEDIKIT, BonusType.FIELD_RATION, BonusType.GRENADE]
-  total = 0
-  for bt, score in zip(btypes, scores):
-    if position.HasBonus(bt):
-      total += score
-  return total
+  return sum(util.ComputeBonusProfit(context, position.me, bonus_type)
+             for bonus_type in constants.ALL_BONUSES if position.HasBonus(bonus_type))
 
 
 @util.TimeMe
 def _PointsScored(context, position):
+  # How many damage we already did.
   total = 0
   for pos, enemy in context.enemies.iteritems():
     old_hp, new_hp = enemy.hitpoints, position.enemies_hp[pos]
     total += old_hp - new_hp
-    if new_hp > 0:
-      pass  #total += _LowHPBonus(context, new_hp)
-    else:
+    if new_hp <= 0:
       total += params.KILL_EXTRA_PROFIT
   return total
 
 
 @util.TimeMe
 def _HealEffect(context, position):
+  # How much hp we healed.
   total = 0
   for ally in context.allies.itervalues():
     old_hp = ally.hitpoints
     new_hp = position.allies_hp[ally.type]
-    total += (new_hp - old_hp) * params.HEAL_DISCOUNT
+    total += new_hp - old_hp
     if new_hp == 0:
-      total -= params.SELF_KILL_PENALTY
+      total -= params.KILL_EXTRA_PROFIT
 
   return total

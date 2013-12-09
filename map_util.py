@@ -9,10 +9,6 @@ HEX_DIGESTS = {
   }
 
 
-def MapIsOpen(map_name):
-  return map_name != 'cheeser'
-
-
 def MapName(context):
   return HEX_DIGESTS.get(HashOfMap(context), '')
 
@@ -22,13 +18,3 @@ def HashOfMap(context):
   for row in context.world.cells:
     md.update(''.join('%d' % c for c in row))
   return md.hexdigest()
-
-
-def SecureOnFirstTurn(context):
-  map_name = context.map_name
-  return map_name in ['cheeser', 'map04', 'map05']
-
-
-def RelaxAttackingOrder(context):
-  map_name = context.map_name
-  return map_name not in ['cheeser', 'map03']

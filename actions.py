@@ -1,7 +1,6 @@
 import copy
 from constants import TOTAL_UNIT_TYPES
 from context import Context
-import global_vars
 from model.BonusType import BonusType
 from model.ActionType import ActionType
 from model.Direction import Direction
@@ -14,24 +13,13 @@ class Storage(object):
   pass
 
 
-def MaybePickupBonus(pos, context):
-  loc = pos.me.xy
-  if not pos.bonuses_present.get(loc, False):
-    return
-  btype = context.bonuses[loc].type
-  if btype == BonusType.GRENADE and not pos.holding_grenade:
-    pos.holding_grenade = True
-    pos.bonuses_present[loc] = False
-  elif btype == BonusType.MEDIKIT and not pos.holding_medikit:
-    pos.holding_medikit = True
-    pos.bonuses_present[loc] = False
-  elif btype == BonusType.FIELD_RATION and not pos.holding_field_ration:
-    pos.holding_field_ration = True
-    pos.bonuses_present[loc] = False
+def ReduceHP(hp, dmg):
+  return max(0, hp - dmg)
 
 
-class MeError(object):
-  pass
+def WithinRange(pa, pb, max_range):
+  return (pa.x - pb.x) ** 2 + (pa.y - pb.y) ** 2 <= max_range ** 2
+
 
 
 class Position(object):
@@ -40,8 +28,7 @@ class Position(object):
     assert isinstance(context, Context)
     me = context.me
     self.me = copy.deepcopy(context.me)
-    self.me.x = MeError
-    self.me.y = MeError
+    self.me.x, self.me.y = None, None  # We'll be modifying xy only; make sure we access everything through x and y.
     self.allies_hp = [None] * TOTAL_UNIT_TYPES
     self.allies_by_type = [None] * TOTAL_UNIT_TYPES
     for xy, ally in context.allies.iteritems():
@@ -71,8 +58,22 @@ class Position(object):
     if utype == self.me.type:
       return self.me
     else:
-      #assert self.allies_by_type[utype] is not None
       return self.allies_by_type[utype]
+
+  def MaybePickupBonus(self, context):
+    loc = self.me.xy
+    if not self.bonuses_present.get(loc, False):
+      return
+    btype = context.bonuses[loc].type
+    if btype == BonusType.GRENADE and not self.holding_grenade:
+      self.holding_grenade = True
+      self.bonuses_present[loc] = False
+    elif btype == BonusType.MEDIKIT and not self.holding_medikit:
+      self.holding_medikit = True
+      self.bonuses_present[loc] = False
+    elif btype == BonusType.FIELD_RATION and not self.holding_field_ration:
+      self.holding_field_ration = True
+      self.bonuses_present[loc] = False
 
 
 class BaseAction(object):
@@ -157,7 +158,7 @@ class Energizer(BaseAction):
     self._SubtractActionPoints(position)
     position.action_points = min(position.action_points + self.context.game.field_ration_bonus_action_points,
                                  position.me.initial_action_points)
-    MaybePickupBonus(position, self.context)
+    position.MaybePickupBonus(self.context)
     return ap, bonuses
 
   def _Undo(self, position, info):
@@ -235,7 +236,7 @@ class UseMedikit(BaseAction):
                    self.context.game.medikit_bonus_hitpoints)
     heal_amount = min(heal_amount, target.maximal_hitpoints - position.allies_hp[self.who])
     position.allies_hp[self.who] += heal_amount
-    MaybePickupBonus(position, self.context)
+    position.MaybePickupBonus(self.context)
     return ap, heal_amount, bonuses
 
   def _Undo(self, position, info):
@@ -278,7 +279,7 @@ class Walk(BaseAction):
 
     self._SubtractActionPoints(position)
     position.me.xy = self.where
-    MaybePickupBonus(position, self.context)
+    position.MaybePickupBonus(self.context)
     return ap, bonuses, old_loc, what_i_have
 
   def _Undo(self, position, info):
@@ -331,7 +332,7 @@ class ThrowGrenade(BaseAction):
     return self.context.game.grenade_throw_cost
 
   def _IsPossible(self, position):
-    return self.context.IsInside(self.where) and position.holding_grenade and util.WithinRange(self.where, position.me.xy, self.context.game.grenade_throw_range)
+    return self.context.IsInside(self.where) and position.holding_grenade and WithinRange(self.where, position.me.xy, self.context.game.grenade_throw_range)
 
   def SetMove(self, position, move):
      move.action = ActionType.THROW_GRENADE
@@ -349,19 +350,19 @@ class ThrowGrenade(BaseAction):
 
     for p in self.context.enemies:
       if p == self.where:
-        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
+        position.enemies_hp[p] = ReduceHP(position.enemies_hp[p], self.context.game.grenade_direct_damage)
       elif util.NextCell(p, self.where):
-        position.enemies_hp[p] = util.ReduceHP(position.enemies_hp[p], self.context.game.grenade_collateral_damage)
+        position.enemies_hp[p] = ReduceHP(position.enemies_hp[p], self.context.game.grenade_collateral_damage)
     for t, ally_hp in enumerate(position.allies_hp):
       if ally_hp is None:
         continue
       xy = position.GetUnit(t).xy
       if xy == self.where:
-        position.allies_hp[t] = util.ReduceHP(position.allies_hp[t], self.context.game.grenade_direct_damage)
+        position.allies_hp[t] = ReduceHP(position.allies_hp[t], self.context.game.grenade_direct_damage)
       elif util.NextCell(xy, self.where):
-        position.allies_hp[t] = util.ReduceHP(position.allies_hp[t], self.context.game.grenade_collateral_damage)
+        position.allies_hp[t] = ReduceHP(position.allies_hp[t], self.context.game.grenade_collateral_damage)
 
-    MaybePickupBonus(position, self.context)
+    position.MaybePickupBonus(self.context)
     return ap, hp, ehp, bonuses
 
   def _Undo(self, position, info):
